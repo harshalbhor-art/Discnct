@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Stub config for Phase 0: registers the service so Settings > Accessibility shows it and the
-  onboarding flow can detect enablement. Event types / target packages get scoped down to the
-  actual blocklist in Phase 1 once interception logic exists.
+  Window-state-change events are enough to know which app is foreground (Level 1). Window
+  content isn't needed until Level 2, which has to look inside an app for its Reels/Shorts tab.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"

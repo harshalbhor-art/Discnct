@@ -41,7 +41,7 @@ fun AppListScreen(modifier: Modifier = Modifier) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Text("Block List", style = DiscnctType.heading.copy(fontWeight = FontWeight.Bold), color = colors.textDisplay)
             Text(
-                "Pick which apps count as blocked. Enforcement lands in Phase 1 — this just builds the list.",
+                "Pick which apps are blocked. Opening one shows the block screen — hold for 30 seconds to get in for 5 minutes.",
                 style = DiscnctType.bodySmall,
                 color = colors.textSecondary,
                 modifier = Modifier.padding(top = 4.dp),

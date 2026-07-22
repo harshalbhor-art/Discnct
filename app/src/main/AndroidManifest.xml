@@ -34,11 +34,14 @@
             </intent-filter>
         </activity>
 
-        <!--
-          Stub service: registered now so the onboarding flow can send the user to
-          Settings > Accessibility and detect whether it's enabled. Detection logic
-          (finding blocked apps / reels) is wired up in Phase 1, not here.
-        -->
+        <activity
+            android:name=".ui.blockscreen.BlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Discnct" />
+
         <service
             android:name=".service.DiscnctAccessibilityService"
             android:exported="false"
