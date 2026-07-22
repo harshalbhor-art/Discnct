@@ -22,52 +22,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.discnct.app.game.logic.CHESS_PUZZLES
+import com.discnct.app.game.logic.chessIsSolution
+import com.discnct.app.game.logic.chessPieceGlyph
+import com.discnct.app.game.logic.chessRewardForAttempts
 import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-private data class ChessPuzzle(
-    val board: Map<String, Char>,
-    val solutionFrom: String,
-    val solutionTo: String,
-    val description: String,
-)
-
-// Hand-verified mate-in-1 positions. Uppercase = white, lowercase = black.
-private val PUZZLES = listOf(
-    ChessPuzzle(
-        board = mapOf("a1" to 'R', "g1" to 'K', "g8" to 'k', "f7" to 'p', "g7" to 'p', "h7" to 'p'),
-        solutionFrom = "a1",
-        solutionTo = "a8",
-        description = "White to move — back-rank mate.",
-    ),
-    ChessPuzzle(
-        board = mapOf("d6" to 'N', "a1" to 'K', "h8" to 'k', "g8" to 'r', "g7" to 'p', "h7" to 'p'),
-        solutionFrom = "d6",
-        solutionTo = "f7",
-        description = "White to move — smothered mate.",
-    ),
-    ChessPuzzle(
-        board = mapOf("h7" to 'Q', "b6" to 'K', "a8" to 'k'),
-        solutionFrom = "h7",
-        solutionTo = "a7",
-        description = "White to move — corner the king.",
-    ),
-)
-
 private val FILES = "abcdefgh"
-
-private fun pieceGlyph(piece: Char): String = when (piece) {
-    'K' -> "♔"; 'Q' -> "♕"; 'R' -> "♖"; 'B' -> "♗"; 'N' -> "♘"; 'P' -> "♙"
-    'k' -> "♚"; 'q' -> "♛"; 'r' -> "♜"; 'b' -> "♝"; 'n' -> "♞"; 'p' -> "♟"
-    else -> ""
-}
 
 @Composable
 fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
-    val puzzle = remember { PUZZLES.random() }
+    val puzzle = remember { CHESS_PUZZLES.random() }
     var selected by remember { mutableStateOf<String?>(null) }
     var wrongAttempts by remember { mutableIntStateOf(0) }
     var over by remember { mutableStateOf(false) }
@@ -85,9 +54,9 @@ fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
             selected = null
             return
         }
-        if (current == puzzle.solutionFrom && square == puzzle.solutionTo) {
+        if (chessIsSolution(puzzle, current, square)) {
             over = true
-            val reward = when (wrongAttempts) { 0 -> 7; 1 -> 4; else -> 1 }
+            val reward = chessRewardForAttempts(wrongAttempts)
             status = "Mate! Solved in ${wrongAttempts + 1} attempt(s)"
             onFinished(GameOutcome(reward, status))
         } else {
@@ -129,7 +98,7 @@ fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
                         ) {
                             if (piece != null) {
                                 Text(
-                                    text = pieceGlyph(piece),
+                                    text = chessPieceGlyph(piece),
                                     style = DiscnctType.heading,
                                     color = if (piece.isUpperCase()) colors.textDisplay else colors.accent,
                                 )

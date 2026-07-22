@@ -23,67 +23,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.discnct.app.game.logic.WORDLE_MAX_GUESSES
+import com.discnct.app.game.logic.WORDLE_WORD_LENGTH
+import com.discnct.app.game.logic.WORDLE_WORD_LIST
+import com.discnct.app.game.logic.WordleLetterState
+import com.discnct.app.game.logic.wordleRewardForGuesses
+import com.discnct.app.game.logic.wordleScoreGuess
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
-
-private val WORD_LIST = listOf(
-    "BRAVE", "CLOUD", "PLANT", "SNAKE", "TRUST", "FROST", "GLASS", "HOUSE",
-    "LEMON", "MUSIC", "OCEAN", "PRIDE", "QUIET", "RIVER", "STORM", "TIGER",
-    "UNITY", "VIVID", "WATER", "YOUTH",
-)
-private const val MAX_GUESSES = 6
-private const val WORD_LENGTH = 5
-
-private enum class LetterState { CORRECT, PRESENT, ABSENT, EMPTY }
-
-private fun scoreGuess(guess: String, target: String): List<LetterState> {
-    val result = MutableList(WORD_LENGTH) { LetterState.ABSENT }
-    val remaining = target.toMutableList()
-    for (i in 0 until WORD_LENGTH) {
-        if (guess[i] == target[i]) {
-            result[i] = LetterState.CORRECT
-            remaining[i] = '_'
-        }
-    }
-    for (i in 0 until WORD_LENGTH) {
-        if (result[i] == LetterState.CORRECT) continue
-        val idx = remaining.indexOf(guess[i])
-        if (idx >= 0) {
-            result[i] = LetterState.PRESENT
-            remaining[idx] = '_'
-        }
-    }
-    return result
-}
-
-private fun rewardForGuesses(count: Int): Int = when (count) {
-    1, 2 -> 7
-    3 -> 6
-    4 -> 5
-    5 -> 4
-    6 -> 3
-    else -> 1
-}
 
 @Composable
 fun WordleGame(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
-    val target = remember { WORD_LIST.random() }
+    val target = remember { WORDLE_WORD_LIST.random() }
     var guesses by remember { mutableStateOf(listOf<String>()) }
     var current by remember { mutableStateOf("") }
     var over by remember { mutableStateOf(false) }
-    var keyStates by remember { mutableStateOf(mapOf<Char, LetterState>()) }
+    var keyStates by remember { mutableStateOf(mapOf<Char, WordleLetterState>()) }
 
-    fun bestOf(a: LetterState, b: LetterState): LetterState {
-        val rank = { s: LetterState -> when (s) { LetterState.CORRECT -> 2; LetterState.PRESENT -> 1; else -> 0 } }
+    fun bestOf(a: WordleLetterState, b: WordleLetterState): WordleLetterState {
+        val rank = { s: WordleLetterState -> when (s) { WordleLetterState.CORRECT -> 2; WordleLetterState.PRESENT -> 1; else -> 0 } }
         return if (rank(a) >= rank(b)) a else b
     }
 
     fun submit() {
-        if (current.length != WORD_LENGTH || over) return
-        val scored = scoreGuess(current, target)
+        if (current.length != WORDLE_WORD_LENGTH || over) return
+        val scored = wordleScoreGuess(current, target)
         val updatedKeys = keyStates.toMutableMap()
-        current.forEachIndexed { i, ch -> updatedKeys[ch] = bestOf(scored[i], updatedKeys[ch] ?: LetterState.EMPTY) }
+        current.forEachIndexed { i, ch -> updatedKeys[ch] = bestOf(scored[i], updatedKeys[ch] ?: WordleLetterState.EMPTY) }
         keyStates = updatedKeys
         guesses = guesses + current
         val won = current == target
@@ -91,8 +58,8 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
         current = ""
         if (won) {
             over = true
-            onFinished(GameOutcome(rewardForGuesses(guessCount), "Solved in $guessCount"))
-        } else if (guessCount >= MAX_GUESSES) {
+            onFinished(GameOutcome(wordleRewardForGuesses(guessCount), "Solved in $guessCount"))
+        } else if (guessCount >= WORDLE_MAX_GUESSES) {
             over = true
             onFinished(GameOutcome(1, "Out of guesses — it was $target"))
         }
@@ -103,7 +70,7 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            "Guess the 5-letter word — $MAX_GUESSES tries",
+            "Guess the 5-letter word — $WORDLE_MAX_GUESSES tries",
             style = DiscnctType.body,
             color = colors.textSecondary,
             textAlign = TextAlign.Center,
@@ -111,30 +78,30 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Column {
-            for (row in 0 until MAX_GUESSES) {
+            for (row in 0 until WORDLE_MAX_GUESSES) {
                 Row {
-                    for (col in 0 until WORD_LENGTH) {
+                    for (col in 0 until WORDLE_WORD_LENGTH) {
                         val letter: Char?
-                        val state: LetterState
+                        val state: WordleLetterState
                         when {
                             row < guesses.size -> {
                                 letter = guesses[row][col]
-                                state = scoreGuess(guesses[row], target)[col]
+                                state = wordleScoreGuess(guesses[row], target)[col]
                             }
                             row == guesses.size && col < current.length -> {
                                 letter = current[col]
-                                state = LetterState.EMPTY
+                                state = WordleLetterState.EMPTY
                             }
                             else -> {
                                 letter = null
-                                state = LetterState.EMPTY
+                                state = WordleLetterState.EMPTY
                             }
                         }
                         val bg = when (state) {
-                            LetterState.CORRECT -> colors.success
-                            LetterState.PRESENT -> colors.warning
-                            LetterState.ABSENT -> colors.surfaceRaised
-                            LetterState.EMPTY -> colors.black
+                            WordleLetterState.CORRECT -> colors.success
+                            WordleLetterState.PRESENT -> colors.warning
+                            WordleLetterState.ABSENT -> colors.surfaceRaised
+                            WordleLetterState.EMPTY -> colors.black
                         }
                         Box(
                             modifier = Modifier
@@ -147,7 +114,7 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
                             Text(
                                 text = letter?.toString() ?: "",
                                 style = DiscnctType.subheading,
-                                color = if (state == LetterState.EMPTY) colors.textPrimary else colors.black,
+                                color = if (state == WordleLetterState.EMPTY) colors.textPrimary else colors.black,
                             )
                         }
                     }
@@ -160,14 +127,14 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
             when (key) {
                 "ENTER" -> submit()
                 "DEL" -> if (current.isNotEmpty()) current = current.dropLast(1)
-                else -> if (current.length < WORD_LENGTH) current += key
+                else -> if (current.length < WORDLE_WORD_LENGTH) current += key
             }
         }
     }
 }
 
 @Composable
-private fun WordleKeyboard(keyStates: Map<Char, LetterState>, enabled: Boolean, onKey: (String) -> Unit) {
+private fun WordleKeyboard(keyStates: Map<Char, WordleLetterState>, enabled: Boolean, onKey: (String) -> Unit) {
     val colors = LocalDiscnctColors.current
     val rows = listOf("QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM")
 
@@ -178,12 +145,12 @@ private fun WordleKeyboard(keyStates: Map<Char, LetterState>, enabled: Boolean, 
                     KeyboardKey(label = "DEL", enabled = enabled, background = colors.surfaceRaised, wide = true) { onKey("DEL") }
                 }
                 row.forEach { ch ->
-                    val state = keyStates[ch] ?: LetterState.EMPTY
+                    val state = keyStates[ch] ?: WordleLetterState.EMPTY
                     val bg = when (state) {
-                        LetterState.CORRECT -> colors.success
-                        LetterState.PRESENT -> colors.warning
-                        LetterState.ABSENT -> colors.border
-                        LetterState.EMPTY -> colors.surfaceRaised
+                        WordleLetterState.CORRECT -> colors.success
+                        WordleLetterState.PRESENT -> colors.warning
+                        WordleLetterState.ABSENT -> colors.border
+                        WordleLetterState.EMPTY -> colors.surfaceRaised
                     }
                     KeyboardKey(label = ch.toString(), enabled = enabled, background = bg) { onKey(ch.toString()) }
                 }

@@ -22,108 +22,43 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.discnct.app.game.logic.Board2048
+import com.discnct.app.game.logic.canMove2048
+import com.discnct.app.game.logic.initialBoard2048
+import com.discnct.app.game.logic.maxTile2048
+import com.discnct.app.game.logic.moveDown2048
+import com.discnct.app.game.logic.moveLeft2048
+import com.discnct.app.game.logic.moveRight2048
+import com.discnct.app.game.logic.moveUp2048
+import com.discnct.app.game.logic.rewardForMaxTile2048
+import com.discnct.app.game.logic.spawnRandomTile2048
 import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-private typealias Board = List<List<Int>>
-
-private fun List<List<Int>>.transpose(): Board = List(4) { c -> List(4) { r -> this[r][c] } }
-private fun List<List<Int>>.reverseRows(): Board = map { it.reversed() }
-
-private fun mergeRowLeft(row: List<Int>): Pair<List<Int>, Boolean> {
-    val nonZero = row.filter { it != 0 }
-    val merged = mutableListOf<Int>()
-    var i = 0
-    while (i < nonZero.size) {
-        if (i + 1 < nonZero.size && nonZero[i] == nonZero[i + 1]) {
-            merged += nonZero[i] * 2
-            i += 2
-        } else {
-            merged += nonZero[i]
-            i += 1
-        }
-    }
-    while (merged.size < 4) merged += 0
-    return merged to (merged != row)
-}
-
-private fun moveLeft(board: Board): Pair<Board, Boolean> {
-    var moved = false
-    val result = board.map { row ->
-        val (merged, rowMoved) = mergeRowLeft(row)
-        if (rowMoved) moved = true
-        merged
-    }
-    return result to moved
-}
-
-private fun moveRight(board: Board): Pair<Board, Boolean> {
-    val (result, moved) = moveLeft(board.reverseRows())
-    return result.reverseRows() to moved
-}
-
-private fun moveUp(board: Board): Pair<Board, Boolean> {
-    val (result, moved) = moveLeft(board.transpose())
-    return result.transpose() to moved
-}
-
-private fun moveDown(board: Board): Pair<Board, Boolean> {
-    val (result, moved) = moveLeft(board.transpose().reverseRows())
-    return result.reverseRows().transpose() to moved
-}
-
-private fun spawnRandomTile(board: Board): Board {
-    val emptyCells = buildList {
-        for (r in 0..3) for (c in 0..3) if (board[r][c] == 0) add(r to c)
-    }
-    if (emptyCells.isEmpty()) return board
-    val (r, c) = emptyCells.random()
-    val value = if (Math.random() < 0.9) 2 else 4
-    return board.mapIndexed { ri, row -> if (ri == r) row.mapIndexed { ci, v -> if (ci == c) value else v } else row }
-}
-
-private fun emptyBoard(): Board = List(4) { List(4) { 0 } }
-
-private fun initialBoard(): Board = spawnRandomTile(spawnRandomTile(emptyBoard()))
-
-private fun canMove(board: Board): Boolean =
-    moveLeft(board).second || moveRight(board).second || moveUp(board).second || moveDown(board).second
-
-private fun maxTile(board: Board): Int = board.flatten().maxOrNull() ?: 0
-
-private fun rewardForMaxTile(max: Int): Int = when {
-    max >= 512 -> 7
-    max >= 256 -> 6
-    max >= 128 -> 5
-    max >= 64 -> 4
-    max >= 32 -> 3
-    else -> 1
-}
-
 @Composable
 fun Game2048(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
-    var board by remember { mutableStateOf(initialBoard()) }
+    var board by remember { mutableStateOf(initialBoard2048()) }
     var over by remember { mutableStateOf(false) }
 
-    fun applyMove(move: (Board) -> Pair<Board, Boolean>) {
+    fun applyMove(move: (Board2048) -> Pair<Board2048, Boolean>) {
         if (over) return
         val (moved, changed) = move(board)
         if (!changed) return
-        val next = spawnRandomTile(moved)
+        val next = spawnRandomTile2048(moved)
         board = next
-        if (!canMove(next)) {
+        if (!canMove2048(next)) {
             over = true
-            onFinished(GameOutcome(rewardForMaxTile(maxTile(next)), "Reached ${maxTile(next)}"))
+            onFinished(GameOutcome(rewardForMaxTile2048(maxTile2048(next)), "Reached ${maxTile2048(next)}"))
         }
     }
 
     fun claim() {
         if (over) return
         over = true
-        onFinished(GameOutcome(rewardForMaxTile(maxTile(board)), "Reached ${maxTile(board)}"))
+        onFinished(GameOutcome(rewardForMaxTile2048(maxTile2048(board)), "Reached ${maxTile2048(board)}"))
     }
 
     Column(
@@ -131,7 +66,7 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            "Best tile: ${maxTile(board)} — merge equal tiles",
+            "Best tile: ${maxTile2048(board)} — merge equal tiles",
             style = DiscnctType.body,
             color = colors.textSecondary,
             textAlign = TextAlign.Center,
@@ -170,10 +105,10 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
 
         Spacer(modifier = Modifier.height(20.dp))
         DirectionPad(
-            onUp = { applyMove(::moveUp) },
-            onDown = { applyMove(::moveDown) },
-            onLeft = { applyMove(::moveLeft) },
-            onRight = { applyMove(::moveRight) },
+            onUp = { applyMove(::moveUp2048) },
+            onDown = { applyMove(::moveDown2048) },
+            onLeft = { applyMove(::moveLeft2048) },
+            onRight = { applyMove(::moveRight2048) },
         )
 
         Spacer(modifier = Modifier.height(20.dp))
