@@ -3,7 +3,8 @@ name: Android Build
 # Builds the Discnct debug APK in CI, where the Android SDK and Google's
 # Maven repo are reachable (they are blocked in the dev sandbox this repo is
 # worked on in, so this is the first environment that actually compiles the
-# app). The APK is uploaded as a downloadable artifact for sideloading.
+# app). The APK is uploaded as an Actions artifact and also published to a
+# rolling "debug" pre-release for a direct, phone-friendly download link.
 
 on:
   push:
@@ -12,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # needed to publish the APK as a release asset
 
 jobs:
   build:
@@ -44,9 +45,26 @@ jobs:
       - name: Build debug APK
         run: ./gradlew :app:assembleDebug --stacktrace
 
-      - name: Upload debug APK
+      - name: Upload debug APK (Actions artifact)
         uses: actions/upload-artifact@v4
         with:
           name: discnct-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      # Publish the APK to a single rolling "debug" pre-release so it has a
+      # stable, direct download link that installs straight from a phone
+      # browser — no GitHub login or zip-unpacking needed. Push builds only
+      # (pull_request events from forks don't get a write-scoped token).
+      - name: Publish APK to the rolling debug release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="$(find app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          cp "$APK" "discnct-debug-v0.1.0.apk"
+          gh release create debug \
+            --title "Discnct — debug build" \
+            --notes "Latest debug APK, built from ${{ github.sha }}. Sideload onto an Android phone (see web-prototype for a no-install preview)." \
+            --prerelease --target "${{ github.ref_name }}" 2>/dev/null || true
+          gh release upload debug "discnct-debug-v0.1.0.apk" --clobber
