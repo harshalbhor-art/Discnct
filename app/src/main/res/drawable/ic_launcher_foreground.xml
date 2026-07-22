@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dot-matrix mark: a 3x3 grid echoing the design system's dot-grid motif, with the center dot in the brand accent to read as the "signal" of a block/focus state. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#E8E8E8" android:pathData="M38,38 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M54,38 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M70,38 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M38,54 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#D71921" android:pathData="M54,54 m-5,0 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M70,54 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M38,70 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M54,70 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+    <path android:fillColor="#E8E8E8" android:pathData="M70,70 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0z" />
+</vector>

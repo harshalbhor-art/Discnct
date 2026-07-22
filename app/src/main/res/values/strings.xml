@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Discnct</string>
+    <string name="accessibility_service_description">Lets Discnct detect when a blocked app or its Reels/Shorts tab is open, so it can show the block screen.</string>
+</resources>
