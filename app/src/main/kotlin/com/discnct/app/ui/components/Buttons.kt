@@ -53,7 +53,7 @@ fun PillButton(
         variant == ButtonVariant.Primary -> colors.black
         variant == ButtonVariant.Secondary -> colors.textPrimary
         variant == ButtonVariant.Ghost -> colors.textSecondary
-        variant == ButtonVariant.Destructive -> colors.accent
+        else -> colors.accent // Destructive
     }
 
     Box(

@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalTextApi::class)
+
 package com.discnct.app.ui.theme
 
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
