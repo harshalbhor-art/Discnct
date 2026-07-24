@@ -17,10 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.discnct.app.game.GameOutcome
 import com.discnct.app.game.GamePool
 import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockCooldown
+import com.discnct.app.service.BlockerGamesStore
 import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.theme.DiscnctTheme
@@ -55,6 +57,9 @@ class BlockActivity : ComponentActivity() {
         setContent {
             DiscnctTheme {
                 var stage by remember { mutableStateOf<Stage>(Stage.Choice) }
+                val gamesStore = remember { BlockerGamesStore(applicationContext) }
+                val enabledGames by gamesStore.enabledGames
+                    .collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
 
                 BackHandler {
                     when (stage) {
@@ -90,7 +95,7 @@ class BlockActivity : ComponentActivity() {
                         Spacer(modifier = Modifier.height(20.dp))
                         PillButton(
                             label = "Play a Game to Earn More Time",
-                            onClick = { stage = Stage.Playing(GamePool.random()) },
+                            onClick = { stage = Stage.Playing(GamePool.randomFrom(enabledGames)) },
                             variant = ButtonVariant.Secondary,
                             modifier = Modifier.fillMaxWidth(),
                         )

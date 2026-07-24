@@ -12,7 +12,14 @@ enum class GameType(val displayName: String) {
     BREATHING("Breathing"),
 }
 
-/** The pool Level 1's "play instead of wait" choice draws from — every entry, uniformly. */
+/** The pool the "play instead of wait" choice draws from. */
 object GamePool {
     fun random(): GameType = GameType.entries.random()
+
+    /**
+     * Pick uniformly from the user's chosen games (see BlockerGamesStore). Falls back to the full
+     * set if the caller somehow passes an empty selection, so the block screen always has a game.
+     */
+    fun randomFrom(enabled: Set<GameType>): GameType =
+        enabled.ifEmpty { GameType.entries.toSet() }.random()
 }

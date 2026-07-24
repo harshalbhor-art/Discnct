@@ -37,6 +37,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var reelBlockedPackages: Set<String> = emptySet()
 
+    /** Master switch for the reel blocker (Level 2). When false, reel scanning is skipped entirely. */
+    @Volatile
+    private var reelBlockingEnabled: Boolean = true
+
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
     private var lastReelScanAtMs = 0L
 
@@ -47,6 +51,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
         serviceScope.launch {
             ReelBlockStore(applicationContext).reelBlockedPackages.collect { reelBlockedPackages = it }
+        }
+        serviceScope.launch {
+            BlockerGamesStore(applicationContext).reelBlockingEnabled.collect { reelBlockingEnabled = it }
         }
     }
 
@@ -80,6 +87,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     }
 
     private fun maybeBlockReels(foregroundPackage: String) {
+        if (!reelBlockingEnabled) return
         if (foregroundPackage !in reelBlockedPackages) return
         if (BlockCooldown.isAllowed(foregroundPackage)) return
 
