@@ -57,7 +57,7 @@ fun AppListScreen(modifier: Modifier = Modifier) {
         Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Text("Block List", style = DiscnctType.heading.copy(fontWeight = FontWeight.Bold), color = colors.textDisplay)
             Text(
-                "Pick which apps are blocked. Opening one shows the block screen — hold for 30 seconds to get in for 5 minutes.",
+                "Right toggle blocks the whole app. On apps with a Reels/Shorts feed, the REELS ONLY toggle keeps the app usable but bounces you out the moment a reel opens.",
                 style = DiscnctType.bodySmall,
                 color = colors.textSecondary,
                 modifier = Modifier.padding(top = 4.dp),
@@ -76,7 +76,11 @@ fun AppListScreen(modifier: Modifier = Modifier) {
 
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(state.rows, key = { it.packageName }) { row ->
-                AppRowItem(row = row, onToggle = { viewModel.setBlocked(row.packageName, it) })
+                AppRowItem(
+                    row = row,
+                    onToggle = { viewModel.setBlocked(row.packageName, it) },
+                    onReelToggle = { viewModel.setReelBlocked(row.packageName, it) },
+                )
                 HorizontalDivider(color = colors.border, thickness = 1.dp)
             }
         }
@@ -138,7 +142,11 @@ private fun Level3Section(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun AppRowItem(row: AppRow, onToggle: (Boolean) -> Unit) {
+private fun AppRowItem(
+    row: AppRow,
+    onToggle: (Boolean) -> Unit,
+    onReelToggle: (Boolean) -> Unit,
+) {
     val colors = LocalDiscnctColors.current
     Row(
         modifier = Modifier
@@ -152,12 +160,23 @@ private fun AppRowItem(row: AppRow, onToggle: (Boolean) -> Unit) {
             contentDescription = null,
             modifier = Modifier.size(36.dp).clip(DiscnctShapes.cardCompact),
         )
-        Text(
-            text = row.label,
-            style = DiscnctType.body,
-            color = colors.textPrimary,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = row.label, style = DiscnctType.body, color = colors.textPrimary)
+            if (row.isReelHost) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 2.dp),
+                ) {
+                    Text(
+                        text = "REELS ONLY",
+                        style = DiscnctType.label,
+                        color = if (row.isReelBlocked) colors.accent else colors.textSecondary,
+                    )
+                    DiscnctToggle(checked = row.isReelBlocked, onCheckedChange = onReelToggle)
+                }
+            }
+        }
         DiscnctToggle(checked = row.isBlocked, onCheckedChange = onToggle)
     }
 }

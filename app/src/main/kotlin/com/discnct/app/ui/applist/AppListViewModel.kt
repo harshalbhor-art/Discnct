@@ -4,10 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.compose.ui.graphics.ImageBitmap
+import com.discnct.app.reel.isReelHostPackage
+import com.discnct.app.service.ReelBlockStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 data class AppRow(
@@ -15,6 +17,10 @@ data class AppRow(
     val label: String,
     val icon: ImageBitmap,
     val isBlocked: Boolean,
+    /** This app has a Reels/Shorts feed we can block surgically. */
+    val isReelHost: Boolean = false,
+    /** The reel-only block is enabled for this app. */
+    val isReelBlocked: Boolean = false,
 )
 
 data class AppListUiState(
@@ -26,6 +32,7 @@ class AppListViewModel(application: Application) : AndroidViewModel(application)
 
     private val repository = InstalledAppsRepository(application)
     private val store = BlockListStore(application)
+    private val reelStore = ReelBlockStore(application)
 
     private val _uiState = MutableStateFlow(AppListUiState())
     val uiState: StateFlow<AppListUiState> = _uiState.asStateFlow()
@@ -35,18 +42,28 @@ class AppListViewModel(application: Application) : AndroidViewModel(application)
     init {
         viewModelScope.launch {
             installedApps = repository.loadLaunchableApps()
-            store.blockedPackages.collectLatest { blocked ->
-                _uiState.value = AppListUiState(
-                    rows = installedApps.map { app ->
-                        AppRow(app.packageName, app.label, app.icon, app.packageName in blocked)
-                    },
-                    isLoading = false,
-                )
+            combine(store.blockedPackages, reelStore.reelBlockedPackages) { blocked, reelBlocked ->
+                installedApps.map { app ->
+                    AppRow(
+                        packageName = app.packageName,
+                        label = app.label,
+                        icon = app.icon,
+                        isBlocked = app.packageName in blocked,
+                        isReelHost = isReelHostPackage(app.packageName),
+                        isReelBlocked = app.packageName in reelBlocked,
+                    )
+                }
+            }.collect { rows ->
+                _uiState.value = AppListUiState(rows = rows, isLoading = false)
             }
         }
     }
 
     fun setBlocked(packageName: String, blocked: Boolean) {
         viewModelScope.launch { store.setBlocked(packageName, blocked) }
+    }
+
+    fun setReelBlocked(packageName: String, blocked: Boolean) {
+        viewModelScope.launch { reelStore.setReelBlocked(packageName, blocked) }
     }
 }

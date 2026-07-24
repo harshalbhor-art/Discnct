@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Window-state-change events are enough to know which app is foreground (Level 1). Window
-  content isn't needed until Level 2, which has to look inside an app for its Reels/Shorts tab.
+  typeWindowStateChanged tells us which app is foreground (Level 1, whole-app blocking).
+  typeWindowContentChanged + typeViewScrolled let us react while the user is scrolling *inside*
+  an app, which is how the reel blocker (Level 2) catches a Reels/Shorts feed the moment it mounts.
+  canRetrieveWindowContent + flagReportViewIds are required to read the on-screen view resource-ids
+  (e.g. com.instagram.android:id/clips_tab) that identify a reel surface.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagDefault"
-    android:canRetrieveWindowContent="false"
+    android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100" />
