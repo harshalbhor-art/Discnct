@@ -39,6 +39,10 @@ private sealed interface Stage {
  * The overlay-in-spirit block screen: an activity the accessibility service launches on
  * top of a blocked app. Dismissing without earning access always routes home rather than
  * finishing normally — finishing would just reveal the blocked app underneath.
+ *
+ * Two entry modes. Whole-app blocks (Level 1) open the [Stage.Choice] screen: hold-to-unlock or
+ * play a game. Reel blocks (Level 2, [EXTRA_REEL_MODE]) skip straight into a random game — winning
+ * grants a few minutes of access to the app's reel feed, which is the whole deal for that level.
  */
 class BlockActivity : ComponentActivity() {
 
@@ -50,21 +54,28 @@ class BlockActivity : ComponentActivity() {
             finish()
             return
         }
+        val reelMode = intent.getBooleanExtra(EXTRA_REEL_MODE, false)
         val appLabel = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(targetPackage, 0)).toString()
         }.getOrDefault(targetPackage)
 
         setContent {
             DiscnctTheme {
-                var stage by remember { mutableStateOf<Stage>(Stage.Choice) }
                 val gamesStore = remember { BlockerGamesStore(applicationContext) }
                 val enabledGames by gamesStore.enabledGames
                     .collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
+                var stage by remember {
+                    mutableStateOf<Stage>(
+                        if (reelMode) Stage.Playing(GamePool.randomFrom(enabledGames)) else Stage.Choice,
+                    )
+                }
 
                 BackHandler {
                     when (stage) {
                         Stage.Choice -> goHome()
-                        is Stage.Playing -> stage = Stage.Choice
+                        // In reel mode there's no Choice screen to fall back to — backing out
+                        // of the game means "not now", so leave the app entirely.
+                        is Stage.Playing -> if (reelMode) goHome() else stage = Stage.Choice
                         is Stage.Reward -> goHome()
                     }
                 }
@@ -117,7 +128,14 @@ class BlockActivity : ComponentActivity() {
                         appName = appLabel,
                         outcome = s.outcome,
                         onClaim = {
-                            BlockCooldown.allow(targetPackage, minutesToMs(s.outcome.earnedMinutes))
+                            // Reel mode always grants at least a small window so a lost game can't
+                            // trap the user in a game → block → game loop on their feed.
+                            val minutes = if (reelMode) {
+                                s.outcome.earnedMinutes.coerceAtLeast(REEL_MIN_MINUTES)
+                            } else {
+                                s.outcome.earnedMinutes
+                            }
+                            BlockCooldown.allow(targetPackage, minutesToMs(minutes))
                             finish()
                         },
                     )
@@ -140,6 +158,8 @@ class BlockActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
+        const val EXTRA_REEL_MODE = "extra_reel_mode"
         private const val HOLD_UNLOCK_MINUTES = 5
+        private const val REEL_MIN_MINUTES = 2
     }
 }

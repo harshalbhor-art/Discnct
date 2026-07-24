@@ -180,7 +180,12 @@ private fun SectionCard(
  * section screens don't each reinvent a title/back header.
  */
 @Composable
-fun SectionTopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun SectionTopBar(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val colors = LocalDiscnctColors.current
     Column(
         modifier = modifier
@@ -198,10 +203,14 @@ fun SectionTopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifi
                 .padding(vertical = 8.dp, horizontal = 2.dp),
         )
         Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = title,
-            style = DiscnctType.heading.copy(fontWeight = FontWeight.Bold),
-            color = colors.textDisplay,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = DiscnctType.heading.copy(fontWeight = FontWeight.Bold),
+                color = colors.textDisplay,
+                modifier = Modifier.weight(1f),
+            )
+            if (trailing != null) trailing()
+        }
     }
 }

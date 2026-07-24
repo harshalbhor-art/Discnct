@@ -48,7 +48,9 @@ private val steps = listOf(
     ),
     Step(
         title = "Usage Access",
-        body = "Used to read how long blocked apps have been open, so cooldowns and earned time can be tracked accurately.",
+        body = "Lets Discnct read how much you use each app, so your block lists put the apps you " +
+            "actually live in right at the top. Find “Discnct” in the list on the next screen and " +
+            "turn it on.",
         isGranted = PermissionStatus::isUsageAccessGranted,
         settingsIntent = { PermissionStatus.usageAccessSettingsIntent() },
     ),

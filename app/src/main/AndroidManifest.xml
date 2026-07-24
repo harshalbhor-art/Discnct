@@ -16,6 +16,15 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
+    <!--
+      Usage access: lets Discnct read per-app foreground time so the block lists can rank the
+      apps you actually use most to the top. Declaring it here is also what makes Discnct show
+      up in Settings › Special app access › Usage access so the toggle can be granted at all.
+      It's a signature/appop permission, granted only from that Settings screen — never at runtime.
+    -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
     <application
         android:name=".DiscnctApp"
         android:allowBackup="false"

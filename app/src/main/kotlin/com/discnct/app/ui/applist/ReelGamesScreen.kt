@@ -19,8 +19,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,10 +57,29 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val reelEnabled by store.reelBlockingEnabled.collectAsStateWithLifecycle(initialValue = true)
     val enabledGames by store.enabledGames.collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
 
-    val reelApps = state.rows.filter { it.isReelHost }
+    var searchOpen by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    val reelApps = state.rows.filter { it.isReelHost }.filteredBy(query)
 
     Column(modifier = modifier.fillMaxSize().background(colors.black)) {
-        SectionTopBar(title = "Blocker + Games", onBack = onBack)
+        SectionTopBar(
+            title = "Blocker + Games",
+            onBack = onBack,
+            trailing = {
+                SearchIconButton(
+                    active = searchOpen,
+                    onToggle = {
+                        searchOpen = !searchOpen
+                        if (!searchOpen) query = ""
+                    },
+                )
+            },
+        )
+
+        if (searchOpen) {
+            AppSearchField(query = query, onQueryChange = { query = it })
+            Spacer(modifier = Modifier.height(8.dp))
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -67,7 +88,7 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             item {
                 Text(
                     text = "Block only the Reels/Shorts feed inside an app while the rest stays usable. " +
-                        "When something's blocked, earn time back with a quick game.",
+                        "When something's blocked, play a quick game to earn a few minutes back.",
                     style = DiscnctType.bodySmall,
                     color = colors.textSecondary,
                     modifier = Modifier.padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 16.dp),
@@ -93,7 +114,11 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             if (reelApps.isEmpty()) {
                 item {
                     Text(
-                        text = if (state.isLoading) "Loading apps…" else "No apps with a Reels/Shorts feed were found on this device.",
+                        text = when {
+                            state.isLoading -> "Loading apps…"
+                            query.isNotBlank() -> "No reel apps match “${query.trim()}”."
+                            else -> "No apps with a Reels/Shorts feed were found on this device."
+                        },
                         style = DiscnctType.bodySmall,
                         color = colors.textDisabled,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
