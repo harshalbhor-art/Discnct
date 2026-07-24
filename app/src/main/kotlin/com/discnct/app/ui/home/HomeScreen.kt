@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -44,6 +47,8 @@ enum class Section { Blocker, ReelGames, TotalDisconnect }
 fun HomeScreen(
     onOpenSection: (Section) -> Unit,
     onOpenPermissions: () -> Unit,
+    darkTheme: Boolean,
+    onToggleTheme: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -64,15 +69,24 @@ fun HomeScreen(
             .fillMaxSize()
             .background(colors.black)
             .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 20.dp)
-            .padding(top = 32.dp, bottom = 28.dp),
+            .padding(top = 24.dp, bottom = 28.dp),
     ) {
-        Text(
-            text = "DISCNCT",
-            style = DiscnctType.displayMd,
-            color = colors.textDisplay,
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "DISCNCT",
+                style = DiscnctType.displayMd,
+                color = colors.textDisplay,
+                modifier = Modifier.weight(1f),
+            )
+            Chip(
+                label = if (darkTheme) "Dark" else "Light",
+                active = true,
+                modifier = Modifier.clickable(onClick = onToggleTheme),
+            )
+        }
+        Spacer(modifier = Modifier.height(14.dp))
         Text(
             // The two-line "what is this app" line the home screen leads with.
             text = "Break the scroll. Block the apps that hook you — or keep them and\nkill just the Reels and Shorts.",
@@ -190,8 +204,9 @@ fun SectionTopBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 20.dp)
-            .padding(top = 24.dp, bottom = 8.dp),
+            .padding(top = 16.dp, bottom = 8.dp),
     ) {
         Text(
             text = "‹  BACK",

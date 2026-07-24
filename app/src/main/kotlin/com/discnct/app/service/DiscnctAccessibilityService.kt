@@ -10,6 +10,7 @@ import com.discnct.app.reel.REEL_BROWSER_PACKAGES
 import com.discnct.app.reel.detectReelSurface
 import com.discnct.app.ui.applist.BlockListStore
 import com.discnct.app.ui.blockscreen.BlockActivity
+import com.discnct.app.ui.settings.PauseStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +42,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var reelBlockingEnabled: Boolean = true
 
+    /** Epoch millis until which all blocking is suspended (Settings > Pause Everything). 0 = not paused. */
+    @Volatile
+    private var pausedUntilMillis: Long = 0L
+
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
     private var lastReelScanAtMs = 0L
 
@@ -54,6 +59,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
         serviceScope.launch {
             BlockerGamesStore(applicationContext).reelBlockingEnabled.collect { reelBlockingEnabled = it }
+        }
+        serviceScope.launch {
+            PauseStore(applicationContext).pausedUntilMillis.collect { pausedUntilMillis = it }
         }
     }
 
@@ -75,6 +83,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     }
 
     private fun maybeBlockWholeApp(foregroundPackage: String) {
+        if (System.currentTimeMillis() < pausedUntilMillis) return
         if (foregroundPackage !in blockedPackages) return
         if (BlockCooldown.isAllowed(foregroundPackage)) return
 
@@ -87,6 +96,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     }
 
     private fun maybeBlockReels(foregroundPackage: String) {
+        if (System.currentTimeMillis() < pausedUntilMillis) return
         if (!reelBlockingEnabled) return
         if (foregroundPackage !in reelBlockedPackages) return
         if (BlockCooldown.isAllowed(foregroundPackage)) return

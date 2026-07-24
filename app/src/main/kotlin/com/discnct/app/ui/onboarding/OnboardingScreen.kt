@@ -7,10 +7,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -94,7 +99,8 @@ fun OnboardingScreen(
         modifier = modifier
             .fillMaxSize()
             .background(colors.black)
-            .padding(horizontal = 24.dp, vertical = 40.dp),
+            .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.navigationBars))
+            .padding(horizontal = 24.dp, vertical = 32.dp),
     ) {
         Text(
             text = "PERMISSION ${stepIndex + 1} / ${steps.size}",
@@ -142,17 +148,18 @@ fun OnboardingScreen(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = "Skip for now",
-            style = DiscnctType.caption,
-            color = colors.textDisabled,
+            style = DiscnctType.bodySmall,
+            color = colors.textSecondary,
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
                     if (stepIndex == steps.lastIndex) onComplete() else stepIndex += 1
-                },
+                }
+                .padding(vertical = 12.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }

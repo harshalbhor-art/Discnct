@@ -26,11 +26,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.home.SectionTopBar
+import com.discnct.app.ui.settings.PinPromptDialog
+import com.discnct.app.ui.settings.PinPromptMode
+import com.discnct.app.ui.settings.StrictModeStore
 import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
@@ -46,6 +50,11 @@ fun BlockerSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val viewModel: AppListViewModel = viewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = LocalDiscnctColors.current
+
+    val context = LocalContext.current
+    val strictStore = remember { StrictModeStore(context.applicationContext) }
+    val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
+    var pendingUnlockPackage by remember { mutableStateOf<String?>(null) }
 
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -99,10 +108,33 @@ fun BlockerSettingsScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(visibleRows, key = { it.packageName }) { row ->
-                WholeAppRow(row = row, onToggle = { viewModel.setBlocked(row.packageName, it) })
+                WholeAppRow(
+                    row = row,
+                    onToggle = { newValue ->
+                        // Turning a block ON never needs the PIN — only weakening protection does.
+                        if (!newValue && strictEnabled) {
+                            pendingUnlockPackage = row.packageName
+                        } else {
+                            viewModel.setBlocked(row.packageName, newValue)
+                        }
+                    },
+                )
                 HorizontalDivider(color = colors.border, thickness = 1.dp)
             }
         }
+    }
+
+    val unlockPackage = pendingUnlockPackage
+    if (unlockPackage != null) {
+        PinPromptDialog(
+            mode = PinPromptMode.Verify(checkPin = { strictStore.verifyPin(it) }),
+            title = "Enter PIN to turn off this block",
+            onConfirmed = {
+                viewModel.setBlocked(unlockPackage, false)
+                pendingUnlockPackage = null
+            },
+            onDismiss = { pendingUnlockPackage = null },
+        )
     }
 }
 

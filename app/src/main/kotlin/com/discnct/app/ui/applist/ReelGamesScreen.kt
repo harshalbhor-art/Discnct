@@ -34,6 +34,9 @@ import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockerGamesStore
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.home.SectionTopBar
+import com.discnct.app.ui.settings.PinPromptDialog
+import com.discnct.app.ui.settings.PinPromptMode
+import com.discnct.app.ui.settings.StrictModeStore
 import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
@@ -56,6 +59,10 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val store = remember { BlockerGamesStore(context.applicationContext) }
     val reelEnabled by store.reelBlockingEnabled.collectAsStateWithLifecycle(initialValue = true)
     val enabledGames by store.enabledGames.collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
+
+    val strictStore = remember { StrictModeStore(context.applicationContext) }
+    val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
+    var pendingMasterUnlock by remember { mutableStateOf(false) }
 
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -98,7 +105,13 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             item {
                 MasterToggleCard(
                     enabled = reelEnabled,
-                    onToggle = { scope.launch { store.setReelBlockingEnabled(it) } },
+                    onToggle = { newValue ->
+                        if (!newValue && strictEnabled) {
+                            pendingMasterUnlock = true
+                        } else {
+                            scope.launch { store.setReelBlockingEnabled(newValue) }
+                        }
+                    },
                 )
             }
 
@@ -135,6 +148,18 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
             }
         }
+    }
+
+    if (pendingMasterUnlock) {
+        PinPromptDialog(
+            mode = PinPromptMode.Verify(checkPin = { strictStore.verifyPin(it) }),
+            title = "Enter PIN to turn off the reel blocker",
+            onConfirmed = {
+                scope.launch { store.setReelBlockingEnabled(false) }
+                pendingMasterUnlock = false
+            },
+            onDismiss = { pendingMasterUnlock = false },
+        )
     }
 }
 
