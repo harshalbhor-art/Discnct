@@ -115,6 +115,17 @@ fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 )
             }
 
+            item {
+                Text(
+                    text = "Shortcut: long-press the Discnct icon on your home screen, or add the " +
+                        "“Reel Blocker” tile to Quick Settings, to flip this switch without opening " +
+                        "the app.",
+                    style = DiscnctType.label,
+                    color = colors.textDisabled,
+                    modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 4.dp),
+                )
+            }
+
             item { SubHeader("Apps with a Reels / Shorts feed") }
             if (reelApps.isEmpty()) {
                 item {

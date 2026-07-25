@@ -86,13 +86,21 @@ Things to actually exercise manually (this is UI/behavioral verification the
 
 - Onboarding flow and permission grants (overlay + usage-stats).
 - Level 1 (Reel Blocker): opening a Reels/Shorts feed in a guarded app raises
-  the block screen, while the rest of that app stays usable.
+  the block screen, while the rest of that app stays usable. Specifically check
+  the *negative* cases, since they're what a too-loose rule breaks: Instagram's
+  DMs, search and profile tabs, and YouTube's home timeline with its Shorts
+  shelf, must all stay untouched.
+- The reel-blocker shortcut: long-pressing the launcher icon and tapping the
+  Quick Settings tile both flip the master switch, and both refuse to turn it
+  *off* while Strict Mode holds a PIN.
 - Level 2 (App Blocker + Games): opening a blocklisted app triggers the block
   overlay; the hold-to-unlock timer works; and each of the 7 mini-games runs
   end-to-end (Tic-Tac-Toe, Minesweeper, Wordle, 2048, Chess puzzle, Breathing,
   Fidget Spinner) awarding the correct unlock minutes on win/loss.
-- Daily play caps: a puzzle stops being offered once its cap is spent, and with
-  every game spent the block screen falls back to hold-to-unlock only.
+- Game sizing: every board is centred on screen and grows to fill the width
+  without overflowing it — worth checking on both a small phone and a tablet,
+  since the scale factor is clamped per screen.
+- The TRY button on each game row plays that game without awarding anything.
 - Level 3 (Total Disconnect): restricted-launcher mode shows only the allowed
   apps, and blocked ones still route through the block screen.
 

@@ -33,6 +33,9 @@ import com.discnct.app.ui.theme.LocalDiscnctColors
 
 private val FILES = "abcdefgh"
 
+/** Unscaled square size; eight of these plus padding is already most of a phone's width. */
+private val SQUARE = 38.dp
+
 @Composable
 fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
@@ -73,8 +76,11 @@ fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
         }
     }
 
+    val scale = gameScaleFactor(base = SQUARE, columns = 8)
+    val square = SQUARE * scale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(status, style = DiscnctType.body, color = colors.textSecondary, textAlign = TextAlign.Center)
@@ -84,22 +90,22 @@ fun ChessPuzzleGame(onFinished: (GameOutcome) -> Unit) {
             for (rank in 8 downTo 1) {
                 Row {
                     for (fileIndex in 0..7) {
-                        val square = "${FILES[fileIndex]}$rank"
-                        val piece = puzzle.board[square]
+                        val name = "${FILES[fileIndex]}$rank"
+                        val piece = puzzle.board[name]
                         val isLight = (fileIndex + rank) % 2 == 0
-                        val isSelected = selected == square
+                        val isSelected = selected == name
                         Box(
                             modifier = Modifier
-                                .size(38.dp)
+                                .size(square)
                                 .border(if (isSelected) 2.dp else 1.dp, if (isSelected) colors.accent else colors.borderVisible)
                                 .background(if (isLight) colors.surfaceRaised else colors.surface)
-                                .clickable(enabled = !over) { onSquareTap(square) },
+                                .clickable(enabled = !over) { onSquareTap(name) },
                             contentAlignment = Alignment.Center,
                         ) {
                             if (piece != null) {
                                 Text(
                                     text = chessPieceGlyph(piece),
-                                    style = DiscnctType.heading,
+                                    style = DiscnctType.heading.scaledBy(scale),
                                     color = if (piece.isUpperCase()) colors.textDisplay else colors.accent,
                                 )
                             }

@@ -26,6 +26,8 @@ import com.discnct.app.game.logic.ticTacToeWinnerOf
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
+private val CELL = 88.dp
+
 @Composable
 fun TicTacToeGame(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
@@ -58,8 +60,11 @@ fun TicTacToeGame(onFinished: (GameOutcome) -> Unit) {
         }
     }
 
+    val scale = gameScaleFactor(base = CELL, columns = 3)
+    val cell = CELL * scale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(status, style = DiscnctType.body, color = colors.textSecondary, textAlign = TextAlign.Center)
@@ -72,7 +77,7 @@ fun TicTacToeGame(onFinished: (GameOutcome) -> Unit) {
                         val index = row * 3 + col
                         Box(
                             modifier = Modifier
-                                .size(88.dp)
+                                .size(cell)
                                 .padding(4.dp)
                                 .border(1.dp, colors.borderVisible)
                                 .background(colors.surface)
@@ -90,7 +95,7 @@ fun TicTacToeGame(onFinished: (GameOutcome) -> Unit) {
                         ) {
                             Text(
                                 text = board[index]?.toString() ?: "",
-                                style = DiscnctType.displayMd,
+                                style = DiscnctType.displayMd.scaledBy(scale),
                                 color = if (board[index] == 'X') colors.textDisplay else colors.accent,
                             )
                         }

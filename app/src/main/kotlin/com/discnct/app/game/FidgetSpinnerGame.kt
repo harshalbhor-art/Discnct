@@ -49,10 +49,13 @@ private val SPINNER_SECONDS = GameType.FIDGET_SPINNER.timeLimitSeconds ?: 45
 
 private const val PROGRESS_SEGMENTS = 15
 
+/** Unscaled diameter of the spinner. */
+private val SPINNER = 220.dp
+
 /**
- * The other idle game, next to Breathing: nothing to solve, just spin. Like Breathing it's bounded
- * by a clock rather than a daily cap, and like Breathing it pays less than a puzzle — the point is
- * to give restless hands somewhere to go for a minute, not to be an efficient way to buy time back.
+ * The other idle game, next to Breathing: nothing to solve, just spin. With no win condition to
+ * end on, a clock ends it instead, and like Breathing it pays less than a puzzle — the point is to
+ * give restless hands somewhere to go for a minute, not an efficient way to buy time back.
  */
 @Composable
 fun FidgetSpinnerGame(onFinished: (GameOutcome) -> Unit) {
@@ -87,13 +90,15 @@ fun FidgetSpinnerGame(onFinished: (GameOutcome) -> Unit) {
         }
     }
 
+    val scale = gameScaleFactor(base = SPINNER, columns = 1)
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
             "${secondsLeft}s left — ${revolutionsFrom(spinner.totalDegrees)} spins",
-            style = DiscnctType.body,
+            style = DiscnctType.body.scaledBy(scale),
             color = colors.textSecondary,
             textAlign = TextAlign.Center,
         )
@@ -101,7 +106,7 @@ fun FidgetSpinnerGame(onFinished: (GameOutcome) -> Unit) {
 
         Canvas(
             modifier = Modifier
-                .size(220.dp)
+                .size(SPINNER * scale)
                 .pointerInput(Unit) {
                     val center = Offset(size.width / 2f, size.height / 2f)
                     detectDragGestures { change, dragAmount ->

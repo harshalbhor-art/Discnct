@@ -22,8 +22,6 @@ private val ENABLED_GAMES = stringSetPreferencesKey("enabled_games")
  *  - [enabledGames] is the pool of mini-games the block screen may offer as a "play to earn time"
  *    option, configured in Level 2 and drawn on by both levels. Defaults to every game. The
  *    setter refuses to empty the pool, so there is always at least one game to fall back to.
- *
- * How often each game may be played is a separate concern — see GamePlayCountStore.
  */
 class BlockerGamesStore(private val context: Context) {
 

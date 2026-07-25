@@ -41,7 +41,35 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Long-press the icon to flip the reel blocker without opening the app. -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!--
+          No-UI target for that shortcut. Translucent rather than NoDisplay because the toggle is a
+          suspend call: NoDisplay requires finishing before onResume, which an async activity can't
+          promise.
+        -->
+        <activity
+            android:name=".shortcut.ReelToggleActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Discnct.Invisible" />
+
+        <service
+            android:name=".shortcut.ReelBlockTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_reel_toggle"
+            android:label="@string/tile_reel_blocker"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <activity
             android:name=".launcher.LauncherActivity"

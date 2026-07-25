@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Long-press the Discnct icon to flip the reel blocker without opening the app. The label is fixed
+  rather than state-dependent because static shortcuts can't be relabelled at runtime; the toast
+  the target activity raises reports which way it went. The Quick Settings tile is the variant
+  that shows live state.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="toggle_reel_blocker"
+        android:enabled="true"
+        android:icon="@drawable/ic_reel_toggle"
+        android:shortcutShortLabel="@string/shortcut_reel_toggle_short"
+        android:shortcutLongLabel="@string/shortcut_reel_toggle_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.discnct.app"
+            android:targetClass="com.discnct.app.shortcut.ReelToggleActivity" />
+    </shortcut>
+</shortcuts>

@@ -31,6 +31,8 @@ import com.discnct.app.game.logic.minesweeperRewardForLoss
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
+private val CELL = 42.dp
+
 @Composable
 fun MinesweeperGame(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
@@ -38,8 +40,11 @@ fun MinesweeperGame(onFinished: (GameOutcome) -> Unit) {
     var over by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Clear the board — $MINESWEEPER_MINES mines hidden") }
 
+    val scale = gameScaleFactor(base = CELL, columns = MINESWEEPER_COLS)
+    val cellSize = CELL * scale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(status, style = DiscnctType.body, color = colors.textSecondary, textAlign = TextAlign.Center)
@@ -53,7 +58,7 @@ fun MinesweeperGame(onFinished: (GameOutcome) -> Unit) {
                         val cell = cells[index]
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(cellSize)
                                 .padding(2.dp)
                                 .border(1.dp, colors.borderVisible)
                                 .background(if (cell.revealed) colors.surface else colors.surfaceRaised)
@@ -86,7 +91,7 @@ fun MinesweeperGame(onFinished: (GameOutcome) -> Unit) {
                             }
                             Text(
                                 text = label,
-                                style = DiscnctType.bodySmall,
+                                style = DiscnctType.bodySmall.scaledBy(scale),
                                 color = if (cell.isMine) colors.accent else colors.textPrimary,
                             )
                         }

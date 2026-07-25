@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.discnct.app.game.logic.WORDLE_MAX_GUESSES
@@ -31,6 +32,14 @@ import com.discnct.app.game.logic.wordleRewardForGuesses
 import com.discnct.app.game.logic.wordleScoreGuess
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
+
+private val TILE = 40.dp
+private val KEY_WIDTH = 28.dp
+private val KEY_HEIGHT = 40.dp
+private val KEY_GAP = 4.dp
+
+/** DEL and GO are this many letter-keys wide. */
+private const val WIDE_KEY_RATIO = 1.6f
 
 @Composable
 fun WordleGame(onFinished: (GameOutcome) -> Unit) {
@@ -65,8 +74,13 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
         }
     }
 
+    // The tiles and the keyboard scale independently: five tiles have room to grow, ten keys in a
+    // row do not, so one shared factor would hold the grid back to what the keyboard can manage.
+    val tileScale = gameScaleFactor(base = TILE, columns = WORDLE_WORD_LENGTH)
+    val tile = TILE * tileScale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -105,7 +119,7 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
                         }
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(tile)
                                 .padding(2.dp)
                                 .border(1.dp, colors.borderVisible)
                                 .background(bg),
@@ -113,7 +127,7 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
                         ) {
                             Text(
                                 text = letter?.toString() ?: "",
-                                style = DiscnctType.subheading,
+                                style = DiscnctType.subheading.scaledBy(tileScale),
                                 color = if (state == WordleLetterState.EMPTY) colors.textPrimary else colors.black,
                             )
                         }
@@ -137,12 +151,13 @@ fun WordleGame(onFinished: (GameOutcome) -> Unit) {
 private fun WordleKeyboard(keyStates: Map<Char, WordleLetterState>, enabled: Boolean, onKey: (String) -> Unit) {
     val colors = LocalDiscnctColors.current
     val rows = listOf("QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM")
+    val scale = keyboardScale()
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         rows.forEachIndexed { rowIndex, row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(KEY_GAP)) {
                 if (rowIndex == 2) {
-                    KeyboardKey(label = "DEL", enabled = enabled, background = colors.surfaceRaised, wide = true) { onKey("DEL") }
+                    KeyboardKey(label = "DEL", enabled = enabled, background = colors.surfaceRaised, scale = scale, wide = true) { onKey("DEL") }
                 }
                 row.forEach { ch ->
                     val state = keyStates[ch] ?: WordleLetterState.EMPTY
@@ -152,27 +167,51 @@ private fun WordleKeyboard(keyStates: Map<Char, WordleLetterState>, enabled: Boo
                         WordleLetterState.ABSENT -> colors.border
                         WordleLetterState.EMPTY -> colors.surfaceRaised
                     }
-                    KeyboardKey(label = ch.toString(), enabled = enabled, background = bg) { onKey(ch.toString()) }
+                    KeyboardKey(label = ch.toString(), enabled = enabled, background = bg, scale = scale) { onKey(ch.toString()) }
                 }
                 if (rowIndex == 2) {
-                    KeyboardKey(label = "GO", enabled = enabled, background = colors.accent, wide = true) { onKey("ENTER") }
+                    KeyboardKey(label = "GO", enabled = enabled, background = colors.accent, scale = scale, wide = true) { onKey("ENTER") }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(KEY_GAP))
         }
     }
 }
 
+/**
+ * The largest the keys can be drawn. Two rows compete for the width — ten letters on the top row,
+ * and seven letters flanked by DEL and GO on the bottom — and the gaps between keys don't scale,
+ * so both have to be measured rather than assumed. On a phone this lands just above 1.0; the
+ * keyboard is the one part of the game that was already as big as it could be.
+ */
 @Composable
-private fun KeyboardKey(label: String, enabled: Boolean, background: Color, wide: Boolean = false, onClick: () -> Unit) {
+private fun keyboardScale(): Float {
+    val usable = LocalConfiguration.current.screenWidthDp.dp - GAME_SIDE_PADDING * 2
+    val topRow = (usable - KEY_GAP * 9) / (KEY_WIDTH * 10f)
+    val bottomRow = (usable - KEY_GAP * 8) / (KEY_WIDTH * (7f + 2f * WIDE_KEY_RATIO))
+    return minOf(GAME_SCALE, topRow, bottomRow)
+}
+
+@Composable
+private fun KeyboardKey(
+    label: String,
+    enabled: Boolean,
+    background: Color,
+    scale: Float,
+    wide: Boolean = false,
+    onClick: () -> Unit,
+) {
     val colors = LocalDiscnctColors.current
     Box(
         modifier = Modifier
-            .size(width = if (wide) 44.dp else 28.dp, height = 40.dp)
+            .size(
+                width = (if (wide) KEY_WIDTH * WIDE_KEY_RATIO else KEY_WIDTH) * scale,
+                height = KEY_HEIGHT * scale,
+            )
             .background(background)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text = label, style = DiscnctType.caption.copy(color = colors.textDisplay))
+        Text(text = label, style = DiscnctType.caption.scaledBy(scale).copy(color = colors.textDisplay))
     }
 }

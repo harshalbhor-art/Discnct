@@ -3,17 +3,21 @@ package com.discnct.app.ui.applist
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,11 +34,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockerGamesStore
-import com.discnct.app.service.GamePlayCountStore
+import com.discnct.app.ui.blockscreen.GameHost
+import com.discnct.app.ui.components.Chip
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.home.SectionTopBar
 import com.discnct.app.ui.settings.PinPromptDialog
@@ -63,11 +70,12 @@ fun AppBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val gamesStore = remember { BlockerGamesStore(context.applicationContext) }
-    val playCountStore = remember { GamePlayCountStore(context.applicationContext) }
     val enabledGames by gamesStore.enabledGames
         .collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
-    val playsToday by playCountStore.playsToday
-        .collectAsStateWithLifecycle(initialValue = emptyMap<GameType, Int>())
+
+    // The game the TRY button is previewing, if any. Its outcome is thrown away — this is a
+    // demo, so "winning" here can't be a way to farm unlock minutes from the settings screen.
+    var previewGame by remember { mutableStateOf<GameType?>(null) }
 
     val strictStore = remember { StrictModeStore(context.applicationContext) }
     val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
@@ -122,7 +130,7 @@ fun AppBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 item {
                     GamePicker(
                         enabledGames = enabledGames,
-                        playsToday = playsToday,
+                        onTryGame = { previewGame = it },
                         onGameToggle = { type, on -> scope.launch { gamesStore.setGameEnabled(type, on) } },
                     )
                 }
@@ -157,6 +165,10 @@ fun AppBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
+    previewGame?.let { type ->
+        GamePreviewDialog(gameType = type, onClose = { previewGame = null })
+    }
+
     val unlockPackage = pendingUnlockPackage
     if (unlockPackage != null) {
         PinPromptDialog(
@@ -172,20 +184,20 @@ fun AppBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * Which games the block screen may offer, and how much of each is left. The limits themselves
- * aren't editable — the puzzles are rationed per day and the idle games are capped by a clock, so
- * the only lever here is which ones you want to see at all.
+ * Which games the block screen may offer. Each row can be tried before it's switched on — deciding
+ * whether you want to face Wordle at 11pm is much easier once you've actually seen it.
  */
 @Composable
 private fun GamePicker(
     enabledGames: Set<GameType>,
-    playsToday: Map<GameType, Int>,
+    onTryGame: (GameType) -> Unit,
     onGameToggle: (GameType, Boolean) -> Unit,
 ) {
     val colors = LocalDiscnctColors.current
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
-            text = "Pick which games can show up when you play for time. At least one stays on.",
+            text = "Pick which games can show up when you play for time. At least one stays on. " +
+                "Tap TRY to play one now — a try never counts for anything.",
             style = DiscnctType.bodySmall,
             color = colors.textSecondary,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -198,11 +210,10 @@ private fun GamePicker(
                 .border(1.dp, colors.border, DiscnctShapes.card),
         ) {
             GameType.entries.forEachIndexed { i, type ->
-                val cap = type.dailyPlayCap
-                val exhausted = cap != null && (playsToday[type] ?: 0) >= cap
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -211,12 +222,16 @@ private fun GamePicker(
                             color = colors.textPrimary,
                         )
                         Text(
-                            text = type.limitLabel(playsToday[type] ?: 0),
+                            text = type.limitLabel,
                             style = DiscnctType.label,
-                            color = if (exhausted) colors.warning else colors.textDisabled,
+                            color = colors.textDisabled,
                             modifier = Modifier.padding(top = 2.dp),
                         )
                     }
+                    Chip(
+                        label = "Try",
+                        modifier = Modifier.clickable { onTryGame(type) },
+                    )
                     DiscnctToggle(
                         checked = type in enabledGames,
                         onCheckedChange = { on -> onGameToggle(type, on) },
@@ -228,6 +243,32 @@ private fun GamePicker(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+/**
+ * A game played from the settings screen, full-bleed so it looks exactly like the real thing.
+ * [GameHost] reports an outcome when the game ends; here it just closes the dialog, since minutes
+ * earned in a preview would be minutes earned without ever having been blocked.
+ */
+@Composable
+private fun GamePreviewDialog(gameType: GameType, onClose: () -> Unit) {
+    val colors = LocalDiscnctColors.current
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxSize().background(colors.black)) {
+            GameHost(gameType = gameType, onFinished = { onClose() })
+            Text(
+                text = "CLOSE",
+                style = DiscnctType.label,
+                color = colors.textSecondary,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .clip(DiscnctShapes.pill)
+                    .clickable(onClick = onClose)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+            )
+        }
     }
 }
 

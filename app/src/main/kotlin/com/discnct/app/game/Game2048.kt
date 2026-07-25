@@ -37,6 +37,10 @@ import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
+private val TILE = 60.dp
+private val PAD_KEY = 48.dp
+private val PAD_GAP = 4.dp
+
 @Composable
 fun Game2048(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
@@ -61,8 +65,11 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
         onFinished(GameOutcome(rewardForMaxTile2048(maxTile2048(board)), "Reached ${maxTile2048(board)}"))
     }
 
+    val scale = gameScaleFactor(base = TILE, columns = 4)
+    val tile = TILE * scale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -80,7 +87,7 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
                         val highValue = value >= 128
                         Box(
                             modifier = Modifier
-                                .size(60.dp)
+                                .size(tile)
                                 .padding(3.dp)
                                 .border(1.dp, colors.borderVisible)
                                 .background(
@@ -94,7 +101,7 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
                         ) {
                             Text(
                                 text = if (value == 0) "" else value.toString(),
-                                style = DiscnctType.subheading,
+                                style = DiscnctType.subheading.scaledBy(scale),
                                 color = if (highValue) colors.black else colors.textDisplay,
                             )
                         }
@@ -124,30 +131,32 @@ fun Game2048(onFinished: (GameOutcome) -> Unit) {
 @Composable
 private fun DirectionPad(onUp: () -> Unit, onDown: () -> Unit, onLeft: () -> Unit, onRight: () -> Unit) {
     val colors = LocalDiscnctColors.current
+    val scale = gameScaleFactor(base = PAD_KEY, columns = 3, gap = PAD_GAP)
+    val key = PAD_KEY * scale
 
     @Composable
     fun Key(label: String, onClick: () -> Unit) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(key)
                 .border(1.dp, colors.borderVisible)
                 .background(colors.surface)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text(text = label, style = DiscnctType.heading, color = colors.textDisplay)
+            Text(text = label, style = DiscnctType.heading.scaledBy(scale), color = colors.textDisplay)
         }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Key("↑", onUp)
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Spacer(modifier = Modifier.height(PAD_GAP))
+        Row(horizontalArrangement = Arrangement.spacedBy(PAD_GAP)) {
             Key("←", onLeft)
-            Spacer(modifier = Modifier.size(48.dp))
+            Spacer(modifier = Modifier.size(key))
             Key("→", onRight)
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(PAD_GAP))
         Key("↓", onDown)
     }
 }

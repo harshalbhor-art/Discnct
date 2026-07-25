@@ -119,8 +119,8 @@ class DiscnctAccessibilityService : AccessibilityService() {
 
         if (detectReelSurface(foregroundPackage, nodeIds, browserUrl) != null) {
             // Instead of bouncing the user out of the app (a jarring Back that closes the feed),
-            // put the block screen over it in reel mode: a random game they can win to earn a few
-            // minutes on the feed. Declining (Back/Home) leaves the app, same as before.
+            // put the block screen over it in reel mode: hold to unlock, or play a game to earn a
+            // few minutes on the feed. Declining (Back/Home) leaves the app, same as before.
             startActivity(
                 Intent(this, BlockActivity::class.java).apply {
                     putExtra(BlockActivity.EXTRA_PACKAGE_NAME, foregroundPackage)

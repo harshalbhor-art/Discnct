@@ -125,6 +125,15 @@ fun HomeScreen(
             wip = true,
             onClick = { onOpenSection(Section.TotalDisconnect) },
         )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        Text(
+            text = "SUPPORT",
+            style = DiscnctType.label,
+            color = colors.textSecondary,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        SupportCard()
     }
 }
 

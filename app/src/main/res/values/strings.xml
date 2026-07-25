@@ -2,4 +2,7 @@
 <resources>
     <string name="app_name">Discnct</string>
     <string name="accessibility_service_description">Lets Discnct detect when a blocked app or its Reels/Shorts tab is open, so it can show the block screen.</string>
+    <string name="shortcut_reel_toggle_short">Reels</string>
+    <string name="shortcut_reel_toggle_long">Reel blocker on/off</string>
+    <string name="tile_reel_blocker">Reel Blocker</string>
 </resources>

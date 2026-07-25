@@ -34,6 +34,9 @@ import com.discnct.app.ui.theme.LocalDiscnctColors
 private const val TOTAL_CYCLES = 4
 private const val PHASE_MS = 4000
 
+/** Unscaled diameter of the breathing circle at full inhale. */
+private val CIRCLE = 180.dp
+
 /**
  * The clock the session is bounded by. Four cycles of four 4s phases is 64s, so in normal use the
  * cycles finish first and this never fires — it's the backstop for a phase animation that stalls
@@ -55,7 +58,7 @@ private enum class Phase(val label: String, val targetScale: Float) {
 @Composable
 fun BreathingExercise(onFinished: (GameOutcome) -> Unit) {
     val colors = LocalDiscnctColors.current
-    val scale = remember { Animatable(0.45f) }
+    val breath = remember { Animatable(0.45f) }
     var phaseLabel by remember { mutableStateOf("Get ready") }
     var cyclesCompleted by remember { mutableStateOf(0) }
     var secondsLeft by remember { mutableStateOf(BREATHING_SECONDS) }
@@ -71,7 +74,7 @@ fun BreathingExercise(onFinished: (GameOutcome) -> Unit) {
         while (cyclesCompleted < TOTAL_CYCLES && !finished) {
             for (phase in Phase.entries) {
                 phaseLabel = phase.label
-                scale.animateTo(phase.targetScale, animationSpec = tween(PHASE_MS, easing = LinearEasing))
+                breath.animateTo(phase.targetScale, animationSpec = tween(PHASE_MS, easing = LinearEasing))
             }
             cyclesCompleted += 1
         }
@@ -88,8 +91,11 @@ fun BreathingExercise(onFinished: (GameOutcome) -> Unit) {
         }
     }
 
+    val scale = gameScaleFactor(base = CIRCLE, columns = 1)
+    val circle = CIRCLE * scale
+
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = GAME_SIDE_PADDING),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
@@ -100,14 +106,14 @@ fun BreathingExercise(onFinished: (GameOutcome) -> Unit) {
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        Box(modifier = Modifier.size(180.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.size(circle), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier
-                    .size(180.dp * scale.value)
+                    .size(circle * breath.value)
                     .clip(CircleShape)
                     .background(colors.accentSubtle),
             )
-            Text(phaseLabel, style = DiscnctType.subheading, color = colors.textDisplay)
+            Text(phaseLabel, style = DiscnctType.subheading.scaledBy(scale), color = colors.textDisplay)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
