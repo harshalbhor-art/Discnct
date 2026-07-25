@@ -19,10 +19,10 @@ import kotlinx.coroutines.launch
 /**
  * The enforcement brain. Two jobs:
  *
- *  1. **Whole-app block (Level 1):** on a foreground-app change, if the app is on the block list
- *     and has no active [BlockCooldown], launch [BlockActivity] over it.
+ *  1. **Whole-app block (Levels 2 and 3):** on a foreground-app change, if the app is on the block
+ *     list and has no active [BlockCooldown], launch [BlockActivity] over it.
  *
- *  2. **Reel block (Level 2):** for apps on the reel-block list, watch content/scroll events and,
+ *  2. **Reel block (Level 1):** for apps on the reel-block list, watch content/scroll events and,
  *     when a Reels/Shorts feed is on screen (identified by [detectReelSurface] from the on-screen
  *     view ids or a browser's URL), bounce the user out with a global Back. This is surgical — the
  *     rest of the host app stays usable.
@@ -38,7 +38,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var reelBlockedPackages: Set<String> = emptySet()
 
-    /** Master switch for the reel blocker (Level 2). When false, reel scanning is skipped entirely. */
+    /** Master switch for the reel blocker (Level 1). When false, reel scanning is skipped entirely. */
     @Volatile
     private var reelBlockingEnabled: Boolean = true
 

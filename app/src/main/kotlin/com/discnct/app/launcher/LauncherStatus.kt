@@ -7,8 +7,8 @@ import android.provider.Settings
 
 /**
  * Whether Discnct is the OS default Home app can't be requested programmatically — Android
- * only lets the user pick a Home app manually in system settings, same constraint as the
- * Level 1 permissions in PermissionStatus. This only reports the current state and opens the
+ * only lets the user pick a Home app manually in system settings, the same constraint the
+ * permissions in PermissionStatus run into. This only reports the current state and opens the
  * relevant settings screen.
  */
 object LauncherStatus {

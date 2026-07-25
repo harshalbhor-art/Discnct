@@ -34,10 +34,13 @@ import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
 /**
- * Discnct's Home-screen replacement. Every launchable app is shown so this stays usable as a
- * real launcher — the restriction (Level 3) only changes what happens when a blocked app's
- * icon is tapped: instead of opening it, it routes through the same [BlockActivity] the
- * accessibility service uses, so removing/disabling that service doesn't bypass blocking here.
+ * Discnct's Home-screen replacement. With the restriction off it behaves like an ordinary
+ * launcher and shows everything; with it on (Level 3) it does two things:
+ *
+ *  - narrows the grid to the handful of apps you allowed, so the phone stops being a place to
+ *    wander, and
+ *  - routes a tap on a blocked app through the same [BlockActivity] the accessibility service
+ *    uses, so turning that service off doesn't get you past a block from here.
  */
 @Composable
 fun LauncherScreen(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
@@ -61,6 +64,19 @@ fun LauncherScreen(onOpenSettings: () -> Unit, modifier: Modifier = Modifier) {
                 CircularProgressIndicator(color = colors.textDisplay)
             }
             return@Column
+        }
+
+        if (state.isMinimalGrid) {
+            Text(
+                text = if (state.rows.isEmpty()) {
+                    "No allowed apps yet. Open Discnct → Total Disconnect to choose some."
+                } else {
+                    "Showing your allowed apps only."
+                },
+                style = DiscnctType.caption,
+                color = colors.textDisabled,
+                modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp),
+            )
         }
 
         LazyVerticalGrid(

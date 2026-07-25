@@ -15,8 +15,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.discnct.app.ui.applist.BlockerSettingsScreen
-import com.discnct.app.ui.applist.ReelGamesScreen
+import com.discnct.app.ui.applist.AllowedAppsScreen
+import com.discnct.app.ui.applist.AppBlockerScreen
+import com.discnct.app.ui.applist.ReelBlockerScreen
 import com.discnct.app.ui.applist.TotalDisconnectScreen
 import com.discnct.app.ui.home.BottomNav
 import com.discnct.app.ui.home.BottomTab
@@ -35,16 +36,17 @@ import kotlinx.coroutines.launch
  * Single-activity host. Rather than gating the whole app behind permission onboarding, the home
  * screen is always the root — you can configure block lists before granting anything, and a banner
  * on Home nudges you to finish setup. Navigation is a plain screen enum with a system-back handler
- * (no nav library needed for four flat destinations).
+ * — still not enough destinations to justify a nav library.
  */
 class MainActivity : ComponentActivity() {
 
     private sealed interface Screen {
         data object Home : Screen
         data object Settings : Screen
-        data object Blocker : Screen
-        data object ReelGames : Screen
+        data object ReelBlocker : Screen
+        data object AppBlocker : Screen
         data object TotalDisconnect : Screen
+        data object AllowedApps : Screen
         data object Permissions : Screen
     }
 
@@ -69,7 +71,11 @@ class MainActivity : ComponentActivity() {
 
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
-                BackHandler(enabled = screen != Screen.Home) { screen = Screen.Home }
+                // Allowed Apps is the one screen reached from another section rather than from
+                // Home, so back has to put you where you came from.
+                BackHandler(enabled = screen != Screen.Home) {
+                    screen = if (screen == Screen.AllowedApps) Screen.TotalDisconnect else Screen.Home
+                }
 
                 // Home and Settings are the two top-level tabs and share the bottom nav bar;
                 // every other screen is reached by drilling in and keeps its own back button.
@@ -81,8 +87,8 @@ class MainActivity : ComponentActivity() {
                                 Screen.Home -> HomeScreen(
                                     onOpenSection = { section ->
                                         screen = when (section) {
-                                            Section.Blocker -> Screen.Blocker
-                                            Section.ReelGames -> Screen.ReelGames
+                                            Section.ReelBlocker -> Screen.ReelBlocker
+                                            Section.AppBlockerGames -> Screen.AppBlocker
                                             Section.TotalDisconnect -> Screen.TotalDisconnect
                                         }
                                     },
@@ -105,9 +111,13 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     when (screen) {
-                        Screen.Blocker -> BlockerSettingsScreen(onBack = { screen = Screen.Home })
-                        Screen.ReelGames -> ReelGamesScreen(onBack = { screen = Screen.Home })
-                        Screen.TotalDisconnect -> TotalDisconnectScreen(onBack = { screen = Screen.Home })
+                        Screen.ReelBlocker -> ReelBlockerScreen(onBack = { screen = Screen.Home })
+                        Screen.AppBlocker -> AppBlockerScreen(onBack = { screen = Screen.Home })
+                        Screen.TotalDisconnect -> TotalDisconnectScreen(
+                            onBack = { screen = Screen.Home },
+                            onOpenAllowedApps = { screen = Screen.AllowedApps },
+                        )
+                        Screen.AllowedApps -> AllowedAppsScreen(onBack = { screen = Screen.TotalDisconnect })
                         Screen.Permissions -> OnboardingScreen(onComplete = { screen = Screen.Home })
                         else -> Unit
                     }

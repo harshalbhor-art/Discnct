@@ -14,14 +14,16 @@ private val REEL_BLOCKING_ENABLED = booleanPreferencesKey("reel_blocking_enabled
 private val ENABLED_GAMES = stringSetPreferencesKey("enabled_games")
 
 /**
- * Level 2 ("Blocker + Games") settings:
+ * Settings shared by the two levels that use games:
  *
- *  - [reelBlockingEnabled] is the master switch for the whole reel/shorts blocker. When off, the
- *    accessibility service stops bouncing users out of Reels feeds even if per-app toggles are on.
+ *  - [reelBlockingEnabled] is Level 1's master switch for the reel/shorts blocker. When off, the
+ *    accessibility service stops interrupting Reels feeds even if per-app toggles are on.
  *    Defaults on so a fresh install that flips a per-app toggle "just works".
  *  - [enabledGames] is the pool of mini-games the block screen may offer as a "play to earn time"
- *    option. Defaults to every game. The setter refuses to empty the pool, so there is always at
- *    least one game to fall back to.
+ *    option, configured in Level 2 and drawn on by both levels. Defaults to every game. The
+ *    setter refuses to empty the pool, so there is always at least one game to fall back to.
+ *
+ * How often each game may be played is a separate concern — see GamePlayCountStore.
  */
 class BlockerGamesStore(private val context: Context) {
 

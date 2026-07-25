@@ -11,8 +11,8 @@ import com.discnct.app.ui.theme.DiscnctTheme
 /**
  * Level 3: registered as a Home-category activity so Discnct can be picked as the OS default
  * launcher (see LauncherStatus — that choice can only be made by the user in system settings,
- * never forced from here). Tapping the "DISCNCT HOME" label opens MainActivity so the block
- * list and Level 3 toggle stay reachable without needing a separate app icon search.
+ * never forced from here). Tapping the "DISCNCT HOME" label opens MainActivity: on a home screen
+ * narrowed to a handful of allowed apps, that label may be the only route back into settings.
  */
 class LauncherActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

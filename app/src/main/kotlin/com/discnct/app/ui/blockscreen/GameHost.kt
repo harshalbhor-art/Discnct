@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.discnct.app.game.BreathingExercise
 import com.discnct.app.game.ChessPuzzleGame
+import com.discnct.app.game.FidgetSpinnerGame
 import com.discnct.app.game.Game2048
 import com.discnct.app.game.GameOutcome
 import com.discnct.app.game.GameType
@@ -53,6 +54,7 @@ fun GameHost(gameType: GameType, onFinished: (GameOutcome) -> Unit) {
             GameType.WORDLE -> WordleGame(onFinished)
             GameType.GAME_2048 -> Game2048(onFinished)
             GameType.BREATHING -> BreathingExercise(onFinished)
+            GameType.FIDGET_SPINNER -> FidgetSpinnerGame(onFinished)
         }
     }
 }

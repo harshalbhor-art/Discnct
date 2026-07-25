@@ -30,7 +30,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockerGamesStore
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.home.SectionTopBar
@@ -43,13 +42,15 @@ import com.discnct.app.ui.theme.LocalDiscnctColors
 import kotlinx.coroutines.launch
 
 /**
- * Section 2 — "Blocker + Games". The gentler middle level: you keep the app but its Reels/Shorts
- * feed gets bounced, and when something *is* blocked you can play a quick game to earn time back.
- * Three controls, top to bottom: the master on/off for the reel blocker, which games the block
- * screen may offer, and which apps' reel feeds to guard.
+ * Section 1 — "Reel Blocker", the level to reach for first. It's the least disruptive thing
+ * Discnct can do: the app you're worried about keeps working, and only its Reels/Shorts feed gets
+ * interrupted. Two controls: the master on/off, and which apps' feeds to guard.
+ *
+ * Which games can appear when a feed is blocked is configured one level up in Section 2 — the pool
+ * is shared between the two levels, so it lives with the one that's named after it.
  */
 @Composable
-fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val viewModel: AppListViewModel = viewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = LocalDiscnctColors.current
@@ -58,7 +59,6 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     val store = remember { BlockerGamesStore(context.applicationContext) }
     val reelEnabled by store.reelBlockingEnabled.collectAsStateWithLifecycle(initialValue = true)
-    val enabledGames by store.enabledGames.collectAsStateWithLifecycle(initialValue = GameType.entries.toSet())
 
     val strictStore = remember { StrictModeStore(context.applicationContext) }
     val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
@@ -70,7 +70,7 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     Column(modifier = modifier.fillMaxSize().background(colors.black)) {
         SectionTopBar(
-            title = "Blocker + Games",
+            title = "Reel Blocker",
             onBack = onBack,
             trailing = {
                 SearchIconButton(
@@ -94,8 +94,8 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         ) {
             item {
                 Text(
-                    text = "Block only the Reels/Shorts feed inside an app while the rest stays usable. " +
-                        "When something's blocked, play a quick game to earn a few minutes back.",
+                    text = "Block only the Reels/Shorts feed inside an app — messages, search and " +
+                        "everything else keep working. Open a feed and a quick game stands in the way.",
                     style = DiscnctType.bodySmall,
                     color = colors.textSecondary,
                     modifier = Modifier.padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 16.dp),
@@ -112,14 +112,6 @@ fun ReelGamesScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             scope.launch { store.setReelBlockingEnabled(newValue) }
                         }
                     },
-                )
-            }
-
-            item { SubHeader("Games on the block screen") }
-            item {
-                GamePicker(
-                    enabledGames = enabledGames,
-                    onGameToggle = { type, on -> scope.launch { store.setGameEnabled(type, on) } },
                 )
             }
 
@@ -181,7 +173,7 @@ private fun MasterToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                 Text("Reel & Shorts Blocker", style = DiscnctType.subheading, color = colors.textDisplay)
                 Text(
                     text = if (enabled) {
-                        "On — opening a Reels/Shorts feed in a guarded app bounces you straight out."
+                        "On — opening a Reels/Shorts feed in a guarded app raises the block screen."
                     } else {
                         "Paused — no reels are blocked until you turn this back on."
                     },
@@ -191,51 +183,6 @@ private fun MasterToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                 )
             }
             DiscnctToggle(checked = enabled, onCheckedChange = onToggle)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun GamePicker(
-    enabledGames: Set<GameType>,
-    onGameToggle: (GameType, Boolean) -> Unit,
-) {
-    val colors = LocalDiscnctColors.current
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Text(
-            text = "Pick which games can show up when you choose to play for time. At least one stays on.",
-            style = DiscnctType.bodySmall,
-            color = colors.textSecondary,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(DiscnctShapes.card)
-                .background(colors.surface)
-                .border(1.dp, colors.border, DiscnctShapes.card),
-        ) {
-            GameType.entries.forEachIndexed { i, type ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = type.displayName,
-                        style = DiscnctType.body,
-                        color = colors.textPrimary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    DiscnctToggle(
-                        checked = type in enabledGames,
-                        onCheckedChange = { on -> onGameToggle(type, on) },
-                    )
-                }
-                if (i != GameType.entries.lastIndex) {
-                    HorizontalDivider(color = colors.border, thickness = 1.dp)
-                }
-            }
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
@@ -275,8 +222,9 @@ private fun ReelAppRow(row: AppRow, masterEnabled: Boolean, onToggle: (Boolean) 
     }
 }
 
+/** Small all-caps run-in heading the section screens use to break their lists apart. */
 @Composable
-private fun SubHeader(text: String) {
+internal fun SubHeader(text: String) {
     val colors = LocalDiscnctColors.current
     Text(
         text = text.uppercase(),

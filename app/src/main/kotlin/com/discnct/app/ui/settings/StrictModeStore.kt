@@ -15,9 +15,10 @@ private val STRICT_ENABLED = booleanPreferencesKey("strict_enabled")
 private val PIN_HASH = stringPreferencesKey("pin_hash")
 
 /**
- * "Strict Mode" — the accountability feature from paid blockers: once on, weakening
- * protection (turning off the whole-app blocker for an app, the reel blocker, or pausing
- * everything) requires the PIN you set here. The PIN is hashed at rest; this is meant as
+ * "Strict Mode" — the accountability feature from paid blockers: once on, weakening protection
+ * requires the PIN you set here. That covers turning off the whole-app blocker for an app,
+ * turning off the reel blocker, letting another app back onto the restricted home screen, and
+ * pausing everything. The PIN is hashed at rest; this is meant as
  * friction against an impulsive tap, not as real security, so a plain unsalted SHA-256 is
  * enough — nothing sensitive is being protected.
  */

@@ -33,9 +33,9 @@ const val HOLD_TO_UNLOCK_MS = 30_000L
 private const val PROGRESS_SEGMENTS = 20
 
 /**
- * The friction for Level 1: hold this down for [HOLD_TO_UNLOCK_MS] without letting go to
- * earn access. Deliberately effortful rather than gamified — Level 2 is where a puzzle
- * replaces the wait.
+ * The block screen's floor: hold this down for [HOLD_TO_UNLOCK_MS] without letting go to earn
+ * access. Deliberately effortful rather than gamified, and always available — when the day's
+ * games are used up this is the only way back in, so it can never be taken away.
  */
 @Composable
 fun HoldToUnlockButton(onUnlocked: () -> Unit, modifier: Modifier = Modifier) {

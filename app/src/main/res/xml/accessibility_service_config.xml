@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  typeWindowStateChanged tells us which app is foreground (Level 1, whole-app blocking).
+  typeWindowStateChanged tells us which app is foreground (Levels 2 and 3, whole-app blocking).
   typeWindowContentChanged + typeViewScrolled let us react while the user is scrolling *inside*
-  an app, which is how the reel blocker (Level 2) catches a Reels/Shorts feed the moment it mounts.
+  an app, which is how the reel blocker (Level 1) catches a Reels/Shorts feed the moment it mounts.
   canRetrieveWindowContent + flagReportViewIds are required to read the on-screen view resource-ids
   (e.g. com.instagram.android:id/clips_tab) that identify a reel surface.
 -->

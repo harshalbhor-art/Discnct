@@ -85,11 +85,16 @@ Things to actually exercise manually (this is UI/behavioral verification the
 `game-logic` unit tests can't cover):
 
 - Onboarding flow and permission grants (overlay + usage-stats).
-- Level 1: opening a blocklisted app triggers the block overlay.
-- Level 2: hold-to-unlock timer, and each of the 6 mini-games end-to-end
-  (Tic-Tac-Toe, Minesweeper, Wordle, 2048, Chess puzzle, and whichever
-  6th game exists) awarding the correct unlock minutes on win/loss.
-- Level 3: restricted-launcher mode behaves as designed.
+- Level 1 (Reel Blocker): opening a Reels/Shorts feed in a guarded app raises
+  the block screen, while the rest of that app stays usable.
+- Level 2 (App Blocker + Games): opening a blocklisted app triggers the block
+  overlay; the hold-to-unlock timer works; and each of the 7 mini-games runs
+  end-to-end (Tic-Tac-Toe, Minesweeper, Wordle, 2048, Chess puzzle, Breathing,
+  Fidget Spinner) awarding the correct unlock minutes on win/loss.
+- Daily play caps: a puzzle stops being offered once its cap is spent, and with
+  every game spent the block screen falls back to hold-to-unlock only.
+- Level 3 (Total Disconnect): restricted-launcher mode shows only the allowed
+  apps, and blocked ones still route through the block screen.
 
 Use `adb logcat *:E` alongside manual taps to catch runtime exceptions the
 compiler won't.

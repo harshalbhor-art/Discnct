@@ -13,9 +13,9 @@ private val RESTRICTED_MODE_ENABLED = booleanPreferencesKey("restricted_mode_ena
 /**
  * Persists whether Level 3 enforcement is active. Being registered as the OS Home app is a
  * separate, always-on capability (see [LauncherStatus]) — this flag is the in-app switch for
- * whether Discnct Home actually routes blocked apps through the block screen, so a user who
- * has already set Discnct as their Home app can still opt out of the restriction without
- * having to go pick a different launcher in system settings.
+ * whether Discnct Home narrows itself to the allowed apps and routes blocked ones through the
+ * block screen, so a user who has already set Discnct as their Home app can still opt out of the
+ * restriction without having to go pick a different launcher in system settings.
  */
 class LauncherModeStore(private val context: Context) {
 

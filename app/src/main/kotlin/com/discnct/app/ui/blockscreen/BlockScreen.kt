@@ -28,10 +28,10 @@ import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
 /**
- * Shared full-screen frame every "you can't have this right now" moment renders
- * inside of. Level 1 (Phase 1) fills [content] with a countdown + disable button;
- * Level 2 (Phase 2) will fill it with the wait-or-play choice and puzzle instead —
- * the frame itself (status bar, app identity, BLOCKED heading) never changes.
+ * Shared full-screen frame every "you can't have this right now" moment renders inside of,
+ * whichever level raised it. [content] carries the difference — the hold-or-play choice, a
+ * running game, a reward — while the frame itself (status bar, app identity, BLOCKED heading)
+ * never changes.
  */
 @Composable
 fun BlockScreen(

@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-/** The two top-level destinations. Sub-section screens (Blocker, Total Disconnect, ...) are
+/** The two top-level destinations. Sub-section screens (Reel Blocker, App Blocker, ...) are
  * reached by drilling in from Home and keep their own back button instead of living in this bar. */
 enum class BottomTab { Home, Settings }
 

@@ -40,8 +40,11 @@ import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-/** The three things the home screen routes into. */
-enum class Section { Blocker, ReelGames, TotalDisconnect }
+/**
+ * The three things the home screen routes into, ordered the way they're meant to be tried:
+ * each level leaves you less of the phone than the one above it.
+ */
+enum class Section { ReelBlocker, AppBlockerGames, TotalDisconnect }
 
 @Composable
 fun HomeScreen(
@@ -89,7 +92,7 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(14.dp))
         Text(
             // The two-line "what is this app" line the home screen leads with.
-            text = "Break the scroll. Block the apps that hook you — or keep them and\nkill just the Reels and Shorts.",
+            text = "Break the scroll. Kill just the Reels and Shorts — or go further and\nblock the apps that hook you outright.",
             style = DiscnctType.body,
             color = colors.textSecondary,
         )
@@ -103,22 +106,22 @@ fun HomeScreen(
 
         SectionCard(
             index = "01",
-            title = "Blocker",
-            subtitle = "Block whole apps completely. Open one and you hit a wall instead.",
-            onClick = { onOpenSection(Section.Blocker) },
+            title = "Reel Blocker",
+            subtitle = "Keep the app, block only its Reels and Shorts. Everything else still works.",
+            onClick = { onOpenSection(Section.ReelBlocker) },
         )
         Spacer(modifier = Modifier.height(12.dp))
         SectionCard(
             index = "02",
-            title = "Blocker + Games",
-            subtitle = "Keep the app, block only its Reels/Shorts. Earn time back by playing a quick game.",
-            onClick = { onOpenSection(Section.ReelGames) },
+            title = "App Blocker + Games",
+            subtitle = "Block whole apps. Hold to unlock, or win a game to earn a few minutes back.",
+            onClick = { onOpenSection(Section.AppBlockerGames) },
         )
         Spacer(modifier = Modifier.height(12.dp))
         SectionCard(
             index = "03",
             title = "Total Disconnect",
-            subtitle = "Replace your home screen with a calm launcher that guards every tap.",
+            subtitle = "Blocked apps, plus a home screen stripped back to the handful you allow.",
             wip = true,
             onClick = { onOpenSection(Section.TotalDisconnect) },
         )

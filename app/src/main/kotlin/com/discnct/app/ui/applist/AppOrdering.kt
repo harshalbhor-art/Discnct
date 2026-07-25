@@ -26,7 +26,7 @@ private val socialRank: Map<String, Int> =
     SOCIAL_PRIORITY.withIndex().associate { (index, pkg) -> pkg to index }
 
 /**
- * Ordering for both app lists (Section 1 and Section 2): pinned social apps first in
+ * Ordering shared by every app list in the app: pinned social apps first in
  * [SOCIAL_PRIORITY] order, then every other app by most foreground time (from Usage Access),
  * then alphabetically as a stable tiebreaker when usage is unknown or equal.
  */
