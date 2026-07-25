@@ -40,10 +40,11 @@ private sealed interface Stage {
  * top of a blocked app. Dismissing without earning access always routes home rather than
  * finishing normally — finishing would just reveal the blocked app underneath.
  *
- * Two entry modes, and both start on the same [Stage.Choice] screen. Whole-app blocks (Level 2)
- * wall off the app; reel blocks (Level 1, [EXTRA_REEL_MODE]) wall off just the feed and hand back
- * a shorter window. A game is only ever started by tapping "Play a Game" — nothing auto-launches,
- * because a game appearing unbidden over an app reads as a malfunction, not as a blocker.
+ * This is Level 2 only. Level 1 never opens it — a blocked reel feed is bounced out with a global
+ * Back by the accessibility service, with nothing drawn over the app at all.
+ *
+ * A game is only ever started by tapping "Play a Game" — nothing auto-launches, because a game
+ * appearing unbidden over an app reads as a malfunction, not as a blocker.
  */
 class BlockActivity : ComponentActivity() {
 
@@ -55,7 +56,6 @@ class BlockActivity : ComponentActivity() {
             finish()
             return
         }
-        val reelMode = intent.getBooleanExtra(EXTRA_REEL_MODE, false)
         val appLabel = runCatching {
             packageManager.getApplicationLabel(packageManager.getApplicationInfo(targetPackage, 0)).toString()
         }.getOrDefault(targetPackage)
@@ -77,26 +77,17 @@ class BlockActivity : ComponentActivity() {
                 }
 
                 when (val s = stage) {
-                    Stage.Choice -> BlockScreen(
-                        appName = appLabel,
-                        statusLabel = if (reelMode) "Reels Blocked" else "Blocked",
-                    ) {
-                        val holdMinutes = if (reelMode) REEL_HOLD_UNLOCK_MINUTES else HOLD_UNLOCK_MINUTES
+                    Stage.Choice -> BlockScreen(appName = appLabel, statusLabel = "Blocked") {
                         Text(
-                            text = if (reelMode) {
-                                "Hold the button below for 30 seconds to keep scrolling $appLabel " +
-                                    "anyway. The feed stays open for $holdMinutes minutes."
-                            } else {
-                                "Hold the button below for 30 seconds to open $appLabel anyway. " +
-                                    "It'll stay unlocked for $holdMinutes minutes."
-                            },
+                            text = "Hold the button below for 30 seconds to open $appLabel anyway. " +
+                                "It'll stay unlocked for $HOLD_UNLOCK_MINUTES minutes.",
                             style = DiscnctType.bodySmall,
                             color = LocalDiscnctColors.current.textSecondary,
                             modifier = Modifier.padding(bottom = 24.dp),
                         )
                         HoldToUnlockButton(
                             onUnlocked = {
-                                BlockCooldown.allow(targetPackage, minutesToMs(holdMinutes))
+                                BlockCooldown.allow(targetPackage, minutesToMs(HOLD_UNLOCK_MINUTES))
                                 finish()
                             },
                         )
@@ -139,14 +130,7 @@ class BlockActivity : ComponentActivity() {
                         appName = appLabel,
                         outcome = s.outcome,
                         onClaim = {
-                            // Reel mode always grants at least a small window so a lost game can't
-                            // trap the user in a game → block → game loop on their feed.
-                            val minutes = if (reelMode) {
-                                s.outcome.earnedMinutes.coerceAtLeast(REEL_MIN_MINUTES)
-                            } else {
-                                s.outcome.earnedMinutes
-                            }
-                            BlockCooldown.allow(targetPackage, minutesToMs(minutes))
+                            BlockCooldown.allow(targetPackage, minutesToMs(s.outcome.earnedMinutes))
                             finish()
                         },
                     )
@@ -169,9 +153,6 @@ class BlockActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
-        const val EXTRA_REEL_MODE = "extra_reel_mode"
         private const val HOLD_UNLOCK_MINUTES = 5
-        private const val REEL_HOLD_UNLOCK_MINUTES = 3
-        private const val REEL_MIN_MINUTES = 2
     }
 }

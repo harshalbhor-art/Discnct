@@ -6,8 +6,11 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.discnct.app.reel.BROWSER_URL_NODE_ID_MARKERS
+import com.discnct.app.reel.BounceAction
+import com.discnct.app.reel.BounceState
 import com.discnct.app.reel.REEL_BROWSER_PACKAGES
 import com.discnct.app.reel.detectReelSurface
+import com.discnct.app.reel.nextBounce
 import com.discnct.app.ui.applist.BlockListStore
 import com.discnct.app.ui.blockscreen.BlockActivity
 import com.discnct.app.ui.settings.PauseStore
@@ -25,7 +28,8 @@ import kotlinx.coroutines.launch
  *  2. **Reel block (Level 1):** for apps on the reel-block list, watch content/scroll events and,
  *     when a Reels/Shorts feed is on screen (identified by [detectReelSurface] from the on-screen
  *     view ids or a browser's URL), bounce the user out with a global Back. This is surgical — the
- *     rest of the host app stays usable.
+ *     rest of the host app stays usable, and there is nothing to dismiss or play through: the feed
+ *     simply won't stay open while the blocker is on.
  */
 class DiscnctAccessibilityService : AccessibilityService() {
 
@@ -48,6 +52,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
 
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
     private var lastReelScanAtMs = 0L
+
+    /** Rate-limiting state for the Level 1 Back bounce. See [nextBounce]. */
+    @Volatile
+    private var bounceState: BounceState = BounceState()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -99,7 +107,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
         if (System.currentTimeMillis() < pausedUntilMillis) return
         if (!reelBlockingEnabled) return
         if (foregroundPackage !in reelBlockedPackages) return
-        if (BlockCooldown.isAllowed(foregroundPackage)) return
+        // Deliberately not checking BlockCooldown: that's time earned at Level 2 to open the *app*,
+        // and reels are no longer something you can earn your way into. Honouring it here would
+        // mean winning a game to open Instagram quietly unlocked its Reels tab too.
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastReelScanAtMs < REEL_SCAN_THROTTLE_MS) return
@@ -118,16 +128,23 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
 
         if (detectReelSurface(foregroundPackage, nodeIds, browserUrl) != null) {
-            // Instead of bouncing the user out of the app (a jarring Back that closes the feed),
-            // put the block screen over it in reel mode: hold to unlock, or play a game to earn a
-            // few minutes on the feed. Declining (Back/Home) leaves the app, same as before.
-            startActivity(
-                Intent(this, BlockActivity::class.java).apply {
-                    putExtra(BlockActivity.EXTRA_PACKAGE_NAME, foregroundPackage)
-                    putExtra(BlockActivity.EXTRA_REEL_MODE, true)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                },
-            )
+            bounceOutOfReels()
+        }
+    }
+
+    /**
+     * Level 1's entire enforcement: pop the feed off the stack and let the user land on whatever
+     * screen was underneath it. Nothing is drawn over the app, because a full-screen block activity
+     * on top of Instagram is visually indistinguishable from blocking Instagram — which is exactly
+     * what this level is not. [nextBounce] handles the repetition and the dead-end cases.
+     */
+    private fun bounceOutOfReels() {
+        val decision = nextBounce(bounceState, SystemClock.elapsedRealtime())
+        bounceState = decision.state
+        when (decision.action) {
+            BounceAction.None -> Unit
+            BounceAction.Back -> performGlobalAction(GLOBAL_ACTION_BACK)
+            BounceAction.Home -> performGlobalAction(GLOBAL_ACTION_HOME)
         }
     }
 

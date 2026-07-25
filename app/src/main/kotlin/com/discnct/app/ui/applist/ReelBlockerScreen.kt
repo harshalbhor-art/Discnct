@@ -46,8 +46,8 @@ import kotlinx.coroutines.launch
  * Discnct can do: the app you're worried about keeps working, and only its Reels/Shorts feed gets
  * interrupted. Two controls: the master on/off, and which apps' feeds to guard.
  *
- * Which games can appear when a feed is blocked is configured one level up in Section 2 — the pool
- * is shared between the two levels, so it lives with the one that's named after it.
+ * No games and no timer live here. Opening a guarded feed simply bounces straight back out, so
+ * there's nothing to configure beyond which apps it applies to.
  */
 @Composable
 fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
@@ -95,7 +95,9 @@ fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             item {
                 Text(
                     text = "Block only the Reels/Shorts feed inside an app — messages, search and " +
-                        "everything else keep working. Open a feed and a quick game stands in the way.",
+                        "everything else keep working. Open a feed and you're sent straight back " +
+                        "to the screen you came from. There's no way to earn your way in: to " +
+                        "watch reels again, turn this off.",
                     style = DiscnctType.bodySmall,
                     color = colors.textSecondary,
                     modifier = Modifier.padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 16.dp),
@@ -184,7 +186,7 @@ private fun MasterToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                 Text("Reel & Shorts Blocker", style = DiscnctType.subheading, color = colors.textDisplay)
                 Text(
                     text = if (enabled) {
-                        "On — opening a Reels/Shorts feed in a guarded app raises the block screen."
+                        "On — opening a Reels/Shorts feed in a guarded app bounces you back out."
                     } else {
                         "Paused — no reels are blocked until you turn this back on."
                     },

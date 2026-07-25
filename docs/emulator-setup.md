@@ -85,11 +85,15 @@ Things to actually exercise manually (this is UI/behavioral verification the
 `game-logic` unit tests can't cover):
 
 - Onboarding flow and permission grants (overlay + usage-stats).
-- Level 1 (Reel Blocker): opening a Reels/Shorts feed in a guarded app raises
-  the block screen, while the rest of that app stays usable. Specifically check
-  the *negative* cases, since they're what a too-loose rule breaks: Instagram's
-  DMs, search and profile tabs, and YouTube's home timeline with its Shorts
-  shelf, must all stay untouched.
+- Level 1 (Reel Blocker): opening a Reels/Shorts feed in a guarded app bounces
+  straight back to the previous screen — no block screen, no game — while the
+  rest of that app stays usable. Specifically check the *negative* cases, since
+  they're what a too-loose rule breaks: Instagram's DMs, search and profile
+  tabs, and YouTube's home timeline with its Shorts shelf, must all stay
+  untouched. Also check the two bounce edge cases: holding a swipe into Reels
+  shouldn't machine-gun Back and eject you from Instagram, and a reel opened
+  from a shared link (nothing behind it on the stack) should land you on the
+  home screen after a few tries rather than looping.
 - The reel-blocker shortcut: long-pressing the launcher icon and tapping the
   Quick Settings tile both flip the master switch, and both refuse to turn it
   *off* while Strict Mode holds a PIN.

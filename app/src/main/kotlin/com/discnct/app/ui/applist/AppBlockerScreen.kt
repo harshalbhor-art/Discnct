@@ -58,8 +58,8 @@ import kotlinx.coroutines.launch
  * screen. The way back in is either 30 seconds of holding a button or winning one of the games
  * picked here.
  *
- * The game pool lives on this screen rather than Section 1 because it's the level named after it,
- * but both levels draw from it — a blocked reel feed offers the same games.
+ * The game pool is this level's alone. Section 1 doesn't offer games at all — a blocked reel feed
+ * is bounced straight back out, with nothing to play through.
  */
 @Composable
 fun AppBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
