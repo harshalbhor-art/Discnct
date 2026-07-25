@@ -76,15 +76,19 @@ fun AppSearchField(
             .border(1.dp, colors.borderVisible, DiscnctShapes.pill)
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .focusRequester(focusRequester),
+        // The placeholder has to share a Box with the field itself — emitting them as bare
+        // siblings would hand the decoration layout two children instead of one.
         decorationBox = { innerTextField ->
-            if (query.isEmpty()) {
-                Text(
-                    text = "Search apps",
-                    style = DiscnctType.body,
-                    color = colors.textDisabled,
-                )
+            Box {
+                if (query.isEmpty()) {
+                    Text(
+                        text = "Search apps",
+                        style = DiscnctType.body,
+                        color = colors.textDisabled,
+                    )
+                }
+                innerTextField()
             }
-            innerTextField()
         },
     )
 }
