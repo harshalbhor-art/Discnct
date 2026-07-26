@@ -1,5 +1,7 @@
 package com.discnct.app.ui.home
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.discnct.app.ui.components.ButtonVariant
@@ -36,16 +39,20 @@ import com.discnct.app.ui.theme.LocalDiscnctColors
 private val PRESET_AMOUNTS = listOf(49, 99, 199, 499)
 
 /**
- * "Buy us a Coffee" — the pay-what-you-like block under the three levels.
- *
- * **Front-end only.** There is no payment provider, no order id, and no network call behind any of
- * this; the button is deliberately inert and says so. It's here to settle what the flow should
- * look like before anything real is wired to it, so nothing in this file should be read as
- * evidence that money can actually change hands yet.
+ * The Stripe-backed checkout at web/coffee, deployed separately from this app. Update this once
+ * it has a real domain — until then the button opens whatever placeholder is deployed at it.
+ */
+private const val COFFEE_CHECKOUT_URL = "https://coffee.discnct.app"
+
+/**
+ * "Buy us a Coffee" — the pay-what-you-like block under the three levels. Tapping "Pay" opens
+ * [COFFEE_CHECKOUT_URL] in the browser with the chosen amount preselected; the actual card entry
+ * happens on that page via Stripe Checkout, never inside the app.
  */
 @Composable
 fun SupportCard(modifier: Modifier = Modifier) {
     val colors = LocalDiscnctColors.current
+    val context = LocalContext.current
     var selected by remember { mutableStateOf(PRESET_AMOUNTS[1]) }
     var custom by remember { mutableStateOf("") }
 
@@ -66,7 +73,6 @@ fun SupportCard(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(text = "Buy us a Coffee", style = DiscnctType.subheading, color = colors.textDisplay)
-            Chip(label = "WIP")
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
@@ -99,13 +105,17 @@ fun SupportCard(modifier: Modifier = Modifier) {
         Spacer(modifier = Modifier.height(14.dp))
         PillButton(
             label = "Pay ₹$amount",
-            onClick = {},
-            enabled = false,
+            onClick = {
+                val uri = Uri.parse(COFFEE_CHECKOUT_URL).buildUpon()
+                    .appendQueryParameter("amount", amount.toString())
+                    .build()
+                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+            },
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Payments aren't connected yet — this is the screen, not the checkout.",
+            text = "Opens Stripe Checkout in your browser — card details never touch this app.",
             style = DiscnctType.label,
             color = colors.textDisabled,
         )

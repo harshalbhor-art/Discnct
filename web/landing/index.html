@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Discnct — escalating resistance between you and the scroll</title>
+<meta name="description" content="Discnct is a free, native Android app that fights reel and social-media addiction in three escalating levels: bounce out of Reels, block whole apps behind a game, or replace your home screen entirely." />
+
+<!-- Config: edit these two lines once the release and payment app exist. -->
+<meta name="discnct-apk-url" content="https://github.com/harshalbhor-art/discnct/releases/latest/download/app-debug.apk" />
+<meta name="discnct-coffee-url" content="https://coffee.discnct.app" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23D71921'/%3E%3C/svg%3E" />
+
+<style>
+:root{
+  --black:#08080a; --surface:#111111; --surface-raised:#1a1a1a;
+  --border:#222222; --border-visible:#333333;
+  --text-disabled:#666666; --text-secondary:#999999; --text-primary:#e8e8e8; --text-display:#ffffff;
+  --accent:#d71921; --accent-subtle:rgba(215,25,33,.15);
+  --success:#4a9e5c; --warning:#d4a843; --interactive:#5b9bf6;
+  --radius:12px;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --black:#f5f5f5; --surface:#ffffff; --surface-raised:#f0f0f0;
+    --border:#e8e8e8; --border-visible:#cccccc;
+    --text-disabled:#999999; --text-secondary:#666666; --text-primary:#1a1a1a; --text-display:#000000;
+  }
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--black); color:var(--text-primary);
+  font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:16px; line-height:1.55; overflow-x:hidden;
+}
+a{color:inherit;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+/* ---------- nav ---------- */
+header{position:sticky;top:0;z-index:20;background:rgba(8,8,10,.85);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);}
+@media (prefers-color-scheme: light){header{background:rgba(245,245,245,.85);}}
+nav.wrap{display:flex;align-items:center;justify-content:space-between;height:64px;}
+.brand{display:flex;align-items:center;gap:8px;font-family:'Doto',sans-serif;font-weight:700;font-size:20px;color:var(--text-display);}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.navlinks{display:flex;gap:28px;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary);}
+.navlinks a{text-decoration:none;transition:color .15s;}
+.navlinks a:hover{color:var(--text-primary);}
+@media (max-width:640px){.navlinks{display:none;}}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.04em;font-weight:700;
+  padding:14px 26px;border-radius:999px;border:1px solid transparent;cursor:pointer;
+  text-decoration:none;transition:transform .12s ease,opacity .12s ease;
+}
+.btn:hover{transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.92;}
+.btn-ghost{background:transparent;border-color:var(--border-visible);color:var(--text-primary);}
+.btn-ghost:hover{border-color:var(--text-secondary);}
+.btn-lg{padding:17px 34px;font-size:14px;}
+
+/* ---------- hero ---------- */
+.hero{padding:100px 0 80px;text-align:center;}
+.tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:20px;}
+h1.display{font-family:'Doto',sans-serif;font-weight:700;font-size:56px;line-height:1.04;letter-spacing:-.02em;color:var(--text-display);margin:0 0 22px;}
+h1.display .accent{color:var(--accent);}
+@media (max-width:640px){h1.display{font-size:38px;}}
+.hero-sub{max-width:560px;margin:0 auto 36px;color:var(--text-secondary);font-size:18px;}
+.hero-ctas{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+
+/* ---------- section shell ---------- */
+section{padding:88px 0;border-top:1px solid var(--border);}
+.eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;}
+h2{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:32px;letter-spacing:-.01em;color:var(--text-display);margin:0 0 18px;}
+.section-lead{max-width:620px;color:var(--text-secondary);font-size:17px;margin:0 0 48px;}
+
+/* ---------- philosophy ---------- */
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+@media (max-width:800px){.principles{grid-template-columns:1fr;}}
+.principle{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
+.principle .num{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-disabled);margin-bottom:10px;}
+.principle h3{font-size:17px;margin:0 0 10px;color:var(--text-display);}
+.principle p{font-size:14px;color:var(--text-secondary);margin:0;}
+
+/* ---------- levels ---------- */
+.level{display:grid;grid-template-columns:1fr 320px;gap:48px;align-items:center;padding:48px 0;border-top:1px solid var(--border);}
+.level:first-of-type{border-top:none;}
+@media (max-width:800px){.level{grid-template-columns:1fr;}}
+.level-copy .level-num{font-family:'Doto',sans-serif;font-weight:700;font-size:15px;color:var(--accent);}
+.level-copy h3{font-family:'Space Grotesk',sans-serif;font-size:26px;margin:6px 0 14px;color:var(--text-display);}
+.level-copy p{color:var(--text-secondary);font-size:15px;max-width:440px;}
+
+/* ---------- phone mock ---------- */
+.phone{width:260px;height:540px;margin:0 auto;background:linear-gradient(160deg,#26262b,#101013 60%);border-radius:38px;padding:10px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);}
+.phone-screen{width:100%;height:100%;border-radius:30px;background:var(--surface);border:1px solid var(--border);overflow:hidden;position:relative;display:flex;flex-direction:column;}
+.phone-status{height:28px;display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-disabled);}
+.phone-body{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.phone-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:100px;height:4px;border-radius:2px;background:var(--text-secondary);opacity:.4;}
+.chip{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);border:1px solid var(--border-visible);border-radius:999px;padding:6px 10px;align-self:flex-start;}
+.chip.accent{color:#fff;background:var(--accent);border-color:var(--accent);}
+.mock-row{background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-secondary);display:flex;justify-content:space-between;}
+.mock-app{height:120px;border-radius:8px;background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);}
+.mock-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:auto;}
+.mock-grid div{aspect-ratio:1;border-radius:8px;background:var(--surface-raised);border:1px solid var(--border);}
+.mock-cta{margin-top:auto;background:var(--accent);color:#fff;font-family:'Space Mono',monospace;font-size:11px;text-align:center;padding:10px;border-radius:999px;}
+
+/* ---------- download ---------- */
+.download-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap;}
+.download-card .meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-secondary);margin-top:10px;}
+
+/* ---------- coffee ---------- */
+.coffee-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;max-width:520px;margin:0 auto;}
+.coffee-card p{color:var(--text-secondary);}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--border);padding:36px 0;}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+footer .fine{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);}
+footer a{text-decoration:none;color:var(--text-secondary);font-size:13px;}
+footer a:hover{color:var(--text-primary);}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <div class="brand"><span class="dot"></span>DISCNCT</div>
+    <div class="navlinks">
+      <a href="#philosophy">Philosophy</a>
+      <a href="#levels">How it works</a>
+      <a href="#download">Download</a>
+      <a href="#coffee">Support</a>
+    </div>
+    <a class="btn btn-ghost" id="nav-download" href="#">Download</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero wrap" style="border-top:none;">
+    <div class="tag">Free · Native Android · No ads · No data sold</div>
+    <h1 class="display">Escalating resistance<br/>between you and <span class="accent">the scroll</span>.</h1>
+    <p class="hero-sub">
+      Discnct doesn't nag you with a single blunt block. It offers three levels of
+      friction — surgical, firm, and total — so you choose how hard to make it on yourself.
+    </p>
+    <div class="hero-ctas">
+      <a class="btn btn-primary btn-lg" id="hero-download" href="#">Download APK</a>
+      <a class="btn btn-ghost btn-lg" href="#levels">See how it works</a>
+    </div>
+  </section>
+
+  <section id="philosophy">
+    <div class="wrap">
+      <p class="eyebrow">Philosophy</p>
+      <h2>Friction, not force.</h2>
+      <p class="section-lead">
+        Most blockers are a locked door: on or off, all or nothing, one password away from
+        defeat. Discnct is built on a different bet — that the right amount of resistance,
+        matched to how bad the habit is, works better than a wall you'll just tear down.
+      </p>
+      <div class="principles">
+        <div class="principle">
+          <div class="num">01</div>
+          <h3>You choose the level</h3>
+          <p>Start surgical. Escalate only when a lighter touch stops being enough — never
+            further than you need.</p>
+        </div>
+        <div class="principle">
+          <div class="num">02</div>
+          <h3>No dark patterns</h3>
+          <p>No streaks to protect, no guilt copy, no ads. It either helps you scroll less or
+            it doesn't — nothing else it's optimizing for.</p>
+        </div>
+        <div class="principle">
+          <div class="num">03</div>
+          <h3>Reversible, on purpose</h3>
+          <p>Every level can be turned back off. The goal is a habit you don't need the app
+            for anymore, not a cage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="levels">
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2>Three levels, escalating on purpose.</h2>
+      <p class="section-lead">
+        Each level is a complete, independent tool — turn on just the one that matches your
+        problem, or stack all three.
+      </p>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 01</div>
+          <h3>Reel Blocker</h3>
+          <p>The moment a Reels or Shorts feed opens inside an app you've guarded, Discnct
+            bounces you straight back out — no block screen, nothing to dismiss. The rest of
+            that app, DMs, search, your feed, stays completely usable. Only the endless
+            vertical scroll disappears.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status">9:41</div>
+            <div class="phone-body">
+              <div class="chip accent">Reel detected → bounced back</div>
+              <div class="mock-row"><span>Instagram · DMs</span><span>✓ open</span></div>
+              <div class="mock-row"><span>Instagram · Search</span><span>✓ open</span></div>
+              <div class="mock-row"><span>Instagram · Reels</span><span>✕ closed</span></div>
+            </div>
+            <div class="phone-indicator"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 02</div>
+          <h3>App Blocker + Games</h3>
+          <p>Whole apps get shut behind a block screen. Hold a button for 30 seconds to earn
+            5 minutes in, or beat a quick puzzle — Wordle, 2048, Minesweeper, a chess mate-in-one
+            — to earn more. Enough friction to make you ask "do I actually want this," not
+            enough to be un-openable in a real emergency.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status">9:41</div>
+            <div class="phone-body">
+              <div class="chip accent">Blocked</div>
+              <div class="mock-app">Hold to unlock — 30s</div>
+              <div class="mock-app">Play a game to earn more time</div>
+            </div>
+            <div class="phone-indicator"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 03</div>
+          <h3>Total Disconnect</h3>
+          <p>Discnct replaces your home screen entirely, showing only a minimal grid of the
+            apps you've explicitly allowed through — essentials like phone, messages and
+            camera by default. Everything else still routes through the Level 2 block screen.
+            The nuclear option, for when the first two aren't enough.</p>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-status">9:41</div>
+            <div class="phone-body" style="flex:1;">
+              <div class="chip">Discnct Home · Restricted</div>
+              <div class="mock-grid">
+                <div></div><div></div><div></div><div></div>
+                <div></div><div></div><div></div><div></div>
+              </div>
+            </div>
+            <div class="phone-indicator"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <p class="eyebrow">Get it</p>
+      <h2>Not on the Play Store — installed directly.</h2>
+      <p class="section-lead">
+        Discnct is sideloaded on purpose: no store review delay, no tracking SDKs a store
+        would require. You'll need to allow installs from this source when Android asks.
+      </p>
+      <div class="download-card">
+        <div>
+          <h3 style="margin:0 0 6px;color:var(--text-display);">Discnct for Android</h3>
+          <div class="meta">Android 8.0+ · Requires Accessibility + Usage Access permissions</div>
+        </div>
+        <a class="btn btn-primary btn-lg" id="download-card-btn" href="#">Download APK</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="coffee">
+    <div class="wrap" style="text-align:center;">
+      <p class="eyebrow">Support</p>
+      <h2>Free, and staying that way.</h2>
+      <div class="coffee-card">
+        <p>Discnct has no ads, no subscription, and doesn't sell your data — which means it
+          has no revenue model at all. If it's helped you scroll less, a coffee helps keep it
+          built and maintained.</p>
+        <a class="btn btn-primary btn-lg" id="coffee-btn" href="#">☕ Buy us a coffee</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fine">Discnct — built to be turned off the day you don't need it.</div>
+    <a href="https://github.com/harshalbhor-art/discnct" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+<script>
+  // Pulls the APK/coffee URLs from the <meta> tags above so there's exactly one
+  // place to update them (a release publish, or a redeploy of web/coffee).
+  const apkUrl = document.querySelector('meta[name="discnct-apk-url"]').content;
+  const coffeeUrl = document.querySelector('meta[name="discnct-coffee-url"]').content;
+  for (const id of ['nav-download', 'hero-download', 'download-card-btn']) {
+    document.getElementById(id).href = apkUrl;
+  }
+  document.getElementById('coffee-btn').href = coffeeUrl;
+</script>
+
+</body>
+</html>
