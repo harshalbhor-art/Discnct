@@ -27,6 +27,7 @@ import com.discnct.app.ui.onboarding.FirstRunStore
 import com.discnct.app.ui.onboarding.OnboardingScreen
 import com.discnct.app.ui.onboarding.WelcomeDialog
 import com.discnct.app.ui.settings.SettingsScreen
+import com.discnct.app.ui.stats.StatsScreen
 import com.discnct.app.ui.theme.DiscnctTheme
 import com.discnct.app.ui.theme.ThemeMode
 import com.discnct.app.ui.theme.ThemeStore
@@ -42,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
     private sealed interface Screen {
         data object Home : Screen
+        data object Stats : Screen
         data object Settings : Screen
         data object ReelBlocker : Screen
         data object AppBlocker : Screen
@@ -77,9 +79,9 @@ class MainActivity : ComponentActivity() {
                     screen = if (screen == Screen.AllowedApps) Screen.TotalDisconnect else Screen.Home
                 }
 
-                // Home and Settings are the two top-level tabs and share the bottom nav bar;
+                // Home, Stats and Settings are the top-level tabs and share the bottom nav bar;
                 // every other screen is reached by drilling in and keeps its own back button.
-                val isTopLevel = screen == Screen.Home || screen == Screen.Settings
+                val isTopLevel = screen == Screen.Home || screen == Screen.Stats || screen == Screen.Settings
                 if (isTopLevel) {
                     Column(modifier = Modifier.fillMaxSize()) {
                         Box(modifier = Modifier.weight(1f)) {
@@ -99,13 +101,22 @@ class MainActivity : ComponentActivity() {
                                         scope.launch { themeStore.setThemeMode(next) }
                                     },
                                 )
+                                Screen.Stats -> StatsScreen()
                                 else -> SettingsScreen()
                             }
                         }
                         BottomNav(
-                            selected = if (screen == Screen.Home) BottomTab.Home else BottomTab.Settings,
+                            selected = when (screen) {
+                                Screen.Stats -> BottomTab.Stats
+                                Screen.Settings -> BottomTab.Settings
+                                else -> BottomTab.Home
+                            },
                             onSelect = { tab ->
-                                screen = if (tab == BottomTab.Home) Screen.Home else Screen.Settings
+                                screen = when (tab) {
+                                    BottomTab.Home -> Screen.Home
+                                    BottomTab.Stats -> Screen.Stats
+                                    BottomTab.Settings -> Screen.Settings
+                                }
                             },
                         )
                     }

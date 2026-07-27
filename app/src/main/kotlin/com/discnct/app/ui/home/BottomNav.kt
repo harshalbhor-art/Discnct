@@ -27,9 +27,9 @@ import androidx.compose.ui.unit.dp
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-/** The two top-level destinations. Sub-section screens (Reel Blocker, App Blocker, ...) are
+/** The three top-level destinations. Sub-section screens (Reel Blocker, App Blocker, ...) are
  * reached by drilling in from Home and keep their own back button instead of living in this bar. */
-enum class BottomTab { Home, Settings }
+enum class BottomTab { Home, Stats, Settings }
 
 @Composable
 fun BottomNav(selected: BottomTab, onSelect: (BottomTab) -> Unit, modifier: Modifier = Modifier) {
@@ -50,6 +50,12 @@ fun BottomNav(selected: BottomTab, onSelect: (BottomTab) -> Unit, modifier: Modi
             onClick = { onSelect(BottomTab.Home) },
         )
         NavItem(
+            icon = StatsBarsIcon,
+            label = "Stats",
+            active = selected == BottomTab.Stats,
+            onClick = { onSelect(BottomTab.Stats) },
+        )
+        NavItem(
             icon = Icons.Filled.Settings,
             label = "Settings",
             active = selected == BottomTab.Settings,
@@ -66,7 +72,8 @@ private fun NavItem(icon: ImageVector, label: String, active: Boolean, onClick: 
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 4.dp),
+            // Three tabs instead of two, so the touch targets give back some of their side room.
+            .padding(horizontal = 18.dp, vertical = 4.dp),
     ) {
         Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.height(4.dp))

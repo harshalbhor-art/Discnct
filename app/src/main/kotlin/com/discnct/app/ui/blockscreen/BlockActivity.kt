@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -23,16 +24,18 @@ import com.discnct.app.game.GamePool
 import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockCooldown
 import com.discnct.app.service.BlockerGamesStore
+import com.discnct.app.stats.GameStatsStore
 import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.theme.DiscnctTheme
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
+import kotlinx.coroutines.launch
 
 private sealed interface Stage {
     data object Choice : Stage
     data class Playing(val type: GameType) : Stage
-    data class Reward(val outcome: GameOutcome) : Stage
+    data class Reward(val type: GameType, val outcome: GameOutcome) : Stage
 }
 
 /**
@@ -62,7 +65,9 @@ class BlockActivity : ComponentActivity() {
 
         setContent {
             DiscnctTheme {
+                val scope = rememberCoroutineScope()
                 val gamesStore = remember { BlockerGamesStore(applicationContext) }
+                val statsStore = remember { GameStatsStore(applicationContext) }
                 // The store's own default is "every game", so seeding with it keeps the
                 // "Play a Game" button from popping in a frame after the screen appears.
                 val enabledGames by gamesStore.enabledGames
@@ -123,7 +128,12 @@ class BlockActivity : ComponentActivity() {
 
                     is Stage.Playing -> GameHost(
                         gameType = s.type,
-                        onFinished = { outcome -> stage = Stage.Reward(outcome) },
+                        onFinished = { outcome ->
+                            // Recorded on finish rather than on claim: the game was played and the
+                            // minutes were won either way, whether or not the unlock is taken up.
+                            scope.launch { statsStore.recordPlay(s.type, outcome.earnedMinutes) }
+                            stage = Stage.Reward(s.type, outcome)
+                        },
                     )
 
                     is Stage.Reward -> GameRewardScreen(
