@@ -37,10 +37,10 @@ import kotlinx.coroutines.launch
  *     when a Reels/Shorts feed is on screen (identified by [detectReelSurface] from the on-screen
  *     view ids or a browser's URL), bounce the user out with a global Back.
  *
- *  3. **Feed block (Level 1):** for apps on the feed-block list, find the scrolling timeline with
- *     [detectFeedSurface] and cover it with [FeedOverlayController]. Nothing is hidden — we can't
- *     touch another app's views — the feed is covered where it sits, so the chrome around it keeps
- *     working.
+ *  3. **Feed cover (Level 1):** for apps on the feed-block list, find the scrolling timeline with
+ *     [detectFeedSurface] and lay an empty shell of the app over it with [FeedOverlayController].
+ *     Nothing is hidden — we can't touch another app's views — the feed is covered where it sits,
+ *     so the top bar, the bottom navigation and the user's own story slot all keep working.
  *
  * Both Level 1 blocks are surgical: the rest of the host app stays usable, and neither has anything
  * to dismiss or play through.
@@ -72,6 +72,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
 
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
     private var lastScanAtMs = 0L
+
+    /** The app the last event came from, so a switch can reset the per-app guard state. */
+    @Volatile
+    private var lastForegroundPackage: String? = null
 
     /** Rate-limiting state for the Level 1 Back bounce. See [nextBounce]. */
     @Volatile
@@ -141,6 +145,16 @@ class DiscnctAccessibilityService : AccessibilityService() {
      * cost of every scroll.
      */
     private fun guardLevelOneSurfaces(foregroundPackage: String) {
+        // A different app in front is a clean slate. Both pieces of state carried across a switch
+        // were silently disarming the blocker: a 30s backoff left over from a run of failed bounces
+        // in *some other app* meant coming back to Instagram found the reel block asleep, and a
+        // half-used throttle window could swallow the one scan a resumed app gets before it settles.
+        if (foregroundPackage != lastForegroundPackage) {
+            lastForegroundPackage = foregroundPackage
+            lastScanAtMs = 0L
+            bounceState = BounceState()
+        }
+
         val paused = System.currentTimeMillis() < pausedUntilMillis
 
         // Deliberately not checking BlockCooldown for either: that's time earned at Level 2 to open
@@ -160,9 +174,12 @@ class DiscnctAccessibilityService : AccessibilityService() {
 
         val now = SystemClock.elapsedRealtime()
         if (now - lastScanAtMs < SCAN_THROTTLE_MS) return
-        lastScanAtMs = now
 
+        // Only spend the throttle window on a scan that actually happened. The window right after a
+        // resume is exactly when the root is most likely to be missing, and burning the slot there
+        // would drop the next 400ms of events too — long enough for a reel to start playing.
         val root = rootInActiveWindow ?: return
+        lastScanAtMs = now
         val scanned = ArrayList<ScannedNode>()
         val window = Rect()
         var browserUrl: String? = null
@@ -199,7 +216,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
         val screen = FeedRegion(window.left, window.top, window.right, window.bottom)
         val feedNodes = scanned.map { FeedNode(it.id, it.left, it.top, it.right, it.bottom) }
         val detection = detectFeedSurface(foregroundPackage, feedNodes, screen)
-        if (detection != null) overlay.show(detection.region) else overlay.hide()
+        if (detection != null) overlay.show(detection) else overlay.hide()
     }
 
     /**

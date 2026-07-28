@@ -52,8 +52,9 @@ import kotlinx.coroutines.launch
  * hold you get interrupted.
  *
  * Two per-app switches, because they're genuinely different habits and plenty of people want one
- * without the other. **Reels & Shorts** bounces you out of the full-screen viewer. **Main feed**
- * covers the scrolling timeline where it sits, leaving DMs, search, posting and profiles alone.
+ * without the other. **Reels & Shorts** bounces you out of the full-screen viewer. **Main feed
+ * cover** lays an empty shell of the app over the scrolling timeline where it sits, leaving the top
+ * bar, the bottom navigation, your own story, DMs, search, posting and profiles alone.
  *
  * No games and no timer live here. There's nothing to dismiss or play through, so there's nothing
  * to configure beyond which apps each switch applies to.
@@ -110,8 +111,9 @@ fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text(
                     text = "Take out the endless parts of an app and leave the rest working. " +
                         "Reels and Shorts bounce you straight back to where you came from; a " +
-                        "blocked feed is covered over where it sits. Messages, search, posting " +
-                        "and profiles are untouched either way. There's no way to earn your way " +
+                        "covered feed becomes an empty shell where it sits. The top bar, the " +
+                        "bottom navigation, your own story, messages, search, posting and " +
+                        "profiles all keep working either way. There's no way to earn your way " +
                         "in — to get them back, turn the switch off.",
                     style = DiscnctType.bodySmall,
                     color = colors.textSecondary,
@@ -264,9 +266,9 @@ private fun GuardedAppRow(
 
         if (row.isFeedHost) {
             SurfaceToggleRow(
-                title = "Main feed",
+                title = "Main feed cover",
                 subtitle = if (row.isFeedBlocked) {
-                    "Feed and stories covered over"
+                    "Timeline and stories covered over"
                 } else {
                     "Allowed"
                 },
