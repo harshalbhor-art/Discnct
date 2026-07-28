@@ -7,6 +7,7 @@ import android.view.Gravity
 import android.view.WindowManager
 import com.discnct.app.feed.FeedDetection
 import com.discnct.app.feed.FeedRegion
+import com.discnct.app.feed.FeedShape
 
 /**
  * Owns the windows drawn over a covered feed.
@@ -43,8 +44,13 @@ class FeedOverlayController(private val context: Context) {
      */
     fun show(detection: FeedDetection) {
         if (!Settings.canDrawOverlays(context)) return
-        feed = reposition(feed, detection.feedRegion, FeedOverlayView.Kind.FEED)
-        stories = reposition(stories, detection.storiesRegion, FeedOverlayView.Kind.STORIES)
+        feed = reposition(feed, detection.feedRegion, detection.feedShapes, FeedOverlayView.Kind.FEED)
+        stories = reposition(
+            stories,
+            detection.storiesRegion,
+            detection.storyShapes,
+            FeedOverlayView.Kind.STORIES,
+        )
     }
 
     /** Take everything down. Safe to call when nothing is showing. */
@@ -56,15 +62,19 @@ class FeedOverlayController(private val context: Context) {
     private fun reposition(
         pane: Pane?,
         region: FeedRegion?,
+        shapes: List<FeedShape>,
         kind: FeedOverlayView.Kind,
     ): Pane? {
         if (region == null || region.isEmpty) return remove(pane)
         if (pane == null) {
             val view = FeedOverlayView(context, kind)
+            view.setContent(region, shapes)
             return runCatching { windowManager.addView(view, layoutParamsFor(region)) }
                 .map { Pane(view, region) }
                 .getOrNull()
         }
+        // The shell is re-measured every scan, so hand it over even when the window hasn't moved.
+        pane.view.setContent(region, shapes)
         if (pane.region == region) return pane
         return runCatching { windowManager.updateViewLayout(pane.view, layoutParamsFor(region)) }
             .map { Pane(pane.view, region) }
@@ -89,7 +99,15 @@ class FeedOverlayController(private val context: Context) {
             // behave normally. Not NOT_TOUCHABLE, though — swallowing touches over the feed is the
             // entire point, and without it the user would scroll an invisible feed under a picture
             // of an empty one.
+            //
+            // LAYOUT_IN_SCREEN is the one that has to be here. The coordinates come from
+            // AccessibilityNodeInfo.getBoundsInScreen(), which measures from the top of the
+            // *display*; without this flag the window is positioned inside the content area
+            // instead, which starts below the status bar. The result is the whole cover sitting
+            // exactly one status bar too low — story rings sliced in half, live feed showing
+            // through above it, and the bottom navigation swallowed by the overrun.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.OPAQUE,
         ).apply {

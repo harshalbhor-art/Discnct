@@ -91,6 +91,42 @@ class FeedRulesTest {
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
         assertTrue(hit.bottommostCovered() <= BOTTOM_SAFE)
+        // Not just inside the guaranteed band — clipped to the bar itself, found by its shape.
+        assertEquals(2200, hit.feedRegion.bottom)
+    }
+
+    @Test fun `a wide short feed row near the bottom is not mistaken for a nav bar`() {
+        // If it were, the cover would retreat from the bottom of the feed and leave a live strip.
+        val nodes = listOf(
+            node("recycler_view", 0, 2400),
+            node("row_feed_photo_imageview", 400, 1400),
+            node("row_feed_comment_textview", 2150, 2210),
+            node("tab_bar", 2250, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        // Had the row been taken for a bar, the cover would stop at 2150 and leave a live strip.
+        assertTrue(hit.feedRegion.bottom > 2150)
+    }
+
+    @Test fun `the shell is measured off the views that are really there`() {
+        val nodes = listOf(
+            node("action_bar", 0, 160),
+            node("recycler_view", 160, 2200),
+            FeedNode("", 20, 200, 210, 390),
+            FeedNode("", 240, 200, 430, 390),
+            FeedNode("", 460, 200, 650, 390),
+            FeedNode("", 680, 200, 870, 390),
+            node("row_feed_photo_imageview", 700, 1780),
+            node("tab_bar", 2200, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        // Four rings on screen, the user's own left uncovered, so three get drawn over.
+        assertEquals(3, hit.storyShapes.count { it.form == ShapeForm.CIRCLE })
+        assertEquals((210 + 240) / 2, assertNotNull(hit.storiesRegion).left)
+        // And the empty photo lands on the real photo.
+        val block = assertNotNull(hit.feedShapes.firstOrNull { it.form == ShapeForm.BLOCK })
+        assertEquals(700, block.bounds.top)
+        assertEquals(1780, block.bounds.bottom)
     }
 
     @Test fun `the top band stays clear even when no action bar is recognised`() {

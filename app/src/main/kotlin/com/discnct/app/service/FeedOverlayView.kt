@@ -7,6 +7,9 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.TypedValue
 import android.view.View
+import com.discnct.app.feed.FeedRegion
+import com.discnct.app.feed.FeedShape
+import com.discnct.app.feed.ShapeForm
 
 /**
  * What the user sees where the feed was: the shape of the app with nothing in it.
@@ -47,12 +50,71 @@ class FeedOverlayView(context: Context, private val kind: Kind) : View(context) 
 
     private val rect = RectF()
 
+    private var shapes: List<FeedShape> = emptyList()
+    private var originX = 0
+    private var originY = 0
+
+    /**
+     * Take the shell measured off the real screen this frame.
+     *
+     * [origin] is the window's own top-left in screen pixels: the shapes arrive in screen
+     * coordinates, and this is what turns them into coordinates inside this view.
+     */
+    fun setContent(origin: FeedRegion, shapes: List<FeedShape>) {
+        if (originX == origin.left && originY == origin.top && this.shapes == shapes) return
+        originX = origin.left
+        originY = origin.top
+        this.shapes = shapes
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         canvas.drawColor(backdrop.color)
-        when (kind) {
-            Kind.FEED -> drawFeed(canvas)
-            Kind.STORIES -> drawStories(canvas)
+        if (shapes.isNotEmpty()) {
+            drawMeasured(canvas)
+        } else {
+            // Nothing to measure — the host app didn't expose the views we hang the shell off.
+            // Proportional is worse but it is still an empty shell rather than a black rectangle.
+            when (kind) {
+                Kind.FEED -> drawFeed(canvas)
+                Kind.STORIES -> drawStories(canvas)
+            }
+            return
         }
+        if (kind == Kind.FEED) drawCaption(canvas)
+    }
+
+    /** Draw each measured piece where the thing it replaces actually sits. */
+    private fun drawMeasured(canvas: Canvas) {
+        for (shape in shapes) {
+            val l = (shape.bounds.left - originX).toFloat()
+            val t = (shape.bounds.top - originY).toFloat()
+            val r = (shape.bounds.right - originX).toFloat()
+            val b = (shape.bounds.bottom - originY).toFloat()
+            if (r <= 0f || b <= 0f || l >= width || t >= height) continue
+            when (shape.form) {
+                ShapeForm.CIRCLE ->
+                    canvas.drawCircle((l + r) / 2f, (t + b) / 2f, minOf(r - l, b - t) / 2f, skeleton)
+                ShapeForm.LINE -> {
+                    rect.set(l, t, r, b)
+                    canvas.drawRoundRect(rect, (b - t) / 2f, (b - t) / 2f, skeleton)
+                }
+                ShapeForm.BLOCK -> {
+                    rect.set(l, t, r, b)
+                    canvas.drawRoundRect(rect, dp(10f), dp(10f), skeleton)
+                    canvas.drawRoundRect(rect, dp(10f), dp(10f), outline)
+                }
+            }
+        }
+    }
+
+    /** The one line of text, on a band of its own so a card behind it can't make it unreadable. */
+    private fun drawCaption(canvas: Canvas) {
+        val band = dp(56f)
+        if (height < band * 2) return
+        canvas.drawRect(0f, height - band, width.toFloat(), height.toFloat(), backdrop)
+        val baseline = height - band / 2f - (caption.descent() + caption.ascent()) / 2f
+        canvas.drawText(CAPTION, width / 2f, baseline, caption)
     }
 
     /** Empty post cards, as many as fit, with the line about them at the bottom. */

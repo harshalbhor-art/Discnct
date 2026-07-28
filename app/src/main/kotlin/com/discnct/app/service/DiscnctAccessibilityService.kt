@@ -283,10 +283,15 @@ class DiscnctAccessibilityService : AccessibilityService() {
             val node = queue.removeFirst()
             visited++
             val id = node.viewIdResourceName
-            if (id != null && node.isVisibleToUser) {
+            if (node.isVisibleToUser) {
                 node.getBoundsInScreen(bounds)
-                outNodes.add(ScannedNode(id, bounds.left, bounds.top, bounds.right, bounds.bottom))
-                if (isBrowser && BROWSER_URL_NODE_ID_MARKERS.any { id.contains(it) }) {
+                // Views with no id are kept too. They match no marker and so can't trigger
+                // anything, but the feed cover measures its shell off real geometry, and plenty of
+                // what it needs to measure — story rings especially — carries no id at all.
+                outNodes.add(
+                    ScannedNode(id ?: "", bounds.left, bounds.top, bounds.right, bounds.bottom),
+                )
+                if (id != null && isBrowser && BROWSER_URL_NODE_ID_MARKERS.any { id.contains(it) }) {
                     node.text?.toString()?.takeIf { it.isNotBlank() }?.let(onBrowserUrl)
                 }
             }
