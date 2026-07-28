@@ -3,9 +3,15 @@ package com.discnct.app.service
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.Rect
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.discnct.app.feed.FeedNode
+import com.discnct.app.feed.FeedRegion
+import com.discnct.app.feed.detectFeedSurface
+import com.discnct.app.feed.isFeedHostPackage
 import com.discnct.app.reel.BROWSER_URL_NODE_ID_MARKERS
 import com.discnct.app.reel.BounceAction
 import com.discnct.app.reel.BounceState
@@ -22,27 +28,39 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * The enforcement brain. Two jobs:
+ * The enforcement brain. Three jobs:
  *
  *  1. **Whole-app block (Levels 2 and 3):** on a foreground-app change, if the app is on the block
  *     list and has no active [BlockCooldown], launch [BlockActivity] over it.
  *
  *  2. **Reel block (Level 1):** for apps on the reel-block list, watch content/scroll events and,
  *     when a Reels/Shorts feed is on screen (identified by [detectReelSurface] from the on-screen
- *     view ids or a browser's URL), bounce the user out with a global Back. This is surgical — the
- *     rest of the host app stays usable, and there is nothing to dismiss or play through: the feed
- *     simply won't stay open while the blocker is on.
+ *     view ids or a browser's URL), bounce the user out with a global Back.
+ *
+ *  3. **Feed block (Level 1):** for apps on the feed-block list, find the scrolling timeline with
+ *     [detectFeedSurface] and cover it with [FeedOverlayController]. Nothing is hidden — we can't
+ *     touch another app's views — the feed is covered where it sits, so the chrome around it keeps
+ *     working.
+ *
+ * Both Level 1 blocks are surgical: the rest of the host app stays usable, and neither has anything
+ * to dismiss or play through.
  */
 class DiscnctAccessibilityService : AccessibilityService() {
 
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(serviceJob + Dispatchers.Default)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val overlay by lazy { FeedOverlayController(this) }
 
     @Volatile
     private var blockedPackages: Set<String> = emptySet()
 
     @Volatile
     private var reelBlockedPackages: Set<String> = emptySet()
+
+    @Volatile
+    private var feedBlockedPackages: Set<String> = emptySet()
 
     /** Master switch for the reel blocker (Level 1). When false, reel scanning is skipped entirely. */
     @Volatile
@@ -53,7 +71,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     private var pausedUntilMillis: Long = 0L
 
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
-    private var lastReelScanAtMs = 0L
+    private var lastScanAtMs = 0L
 
     /** Rate-limiting state for the Level 1 Back bounce. See [nextBounce]. */
     @Volatile
@@ -68,10 +86,22 @@ class DiscnctAccessibilityService : AccessibilityService() {
             ReelBlockStore(applicationContext).reelBlockedPackages.collect { reelBlockedPackages = it }
         }
         serviceScope.launch {
+            FeedBlockStore(applicationContext).feedBlockedPackages.collect {
+                feedBlockedPackages = it
+                // Turning a switch off has to take the overlay down straight away. Waiting for the
+                // next accessibility event would leave the block sitting there over a feed the user
+                // has just un-blocked, with nothing they can do to shift it.
+                hideOverlaySoon()
+            }
+        }
+        serviceScope.launch {
             BlockerGamesStore(applicationContext).reelBlockingEnabled.collect { reelBlockingEnabled = it }
         }
         serviceScope.launch {
-            PauseStore(applicationContext).pausedUntilMillis.collect { pausedUntilMillis = it }
+            PauseStore(applicationContext).pausedUntilMillis.collect {
+                pausedUntilMillis = it
+                hideOverlaySoon()
+            }
         }
     }
 
@@ -83,11 +113,11 @@ class DiscnctAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 maybeBlockWholeApp(foregroundPackage)
-                maybeBlockReels(foregroundPackage)
+                guardLevelOneSurfaces(foregroundPackage)
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                maybeBlockReels(foregroundPackage)
+                guardLevelOneSurfaces(foregroundPackage)
             }
         }
     }
@@ -105,37 +135,75 @@ class DiscnctAccessibilityService : AccessibilityService() {
         )
     }
 
-    private fun maybeBlockReels(foregroundPackage: String) {
-        if (System.currentTimeMillis() < pausedUntilMillis) return
-        if (!reelBlockingEnabled) return
-        if (foregroundPackage !in reelBlockedPackages) return
-        // Deliberately not checking BlockCooldown: that's time earned at Level 2 to open the *app*,
-        // and reels are no longer something you can earn your way into. Honouring it here would
-        // mean winning a game to open Instagram quietly unlocked its Reels tab too.
+    /**
+     * Both Level 1 blocks, off a single walk of the view tree. They need the same information —
+     * which views are on screen and where — and scanning twice per event for it would double the
+     * cost of every scroll.
+     */
+    private fun guardLevelOneSurfaces(foregroundPackage: String) {
+        val paused = System.currentTimeMillis() < pausedUntilMillis
+
+        // Deliberately not checking BlockCooldown for either: that's time earned at Level 2 to open
+        // the *app*, and neither reels nor the feed is something you can earn your way into.
+        // Honouring it here would mean winning a game to open Instagram quietly unlocked both.
+        val guardReels = !paused &&
+            reelBlockingEnabled &&
+            foregroundPackage in reelBlockedPackages
+        val guardFeed = !paused &&
+            foregroundPackage in feedBlockedPackages &&
+            isFeedHostPackage(foregroundPackage)
+
+        if (!guardReels && !guardFeed) {
+            overlay.hide()
+            return
+        }
 
         val now = SystemClock.elapsedRealtime()
-        if (now - lastReelScanAtMs < REEL_SCAN_THROTTLE_MS) return
-        lastReelScanAtMs = now
+        if (now - lastScanAtMs < SCAN_THROTTLE_MS) return
+        lastScanAtMs = now
 
         val root = rootInActiveWindow ?: return
-        val nodes = ArrayList<ReelNode>()
+        val scanned = ArrayList<ScannedNode>()
+        val window = Rect()
         var browserUrl: String? = null
         val isBrowser = foregroundPackage in REEL_BROWSER_PACKAGES
 
         try {
-            collectScreen(root, nodes, isBrowser) { url -> browserUrl = url }
+            root.getBoundsInScreen(window)
+            collectScreen(root, scanned, isBrowser) { url -> browserUrl = url }
         } finally {
             @Suppress("DEPRECATION")
             root.recycle()
         }
 
-        if (detectReelSurface(foregroundPackage, nodes, browserUrl) != null) {
-            bounceOutOfReels()
+        if (guardFeed) {
+            updateFeedOverlay(foregroundPackage, scanned, window)
+        } else {
+            overlay.hide()
+        }
+
+        if (guardReels) {
+            val windowArea = window.width().toLong() * window.height().toLong()
+            val reelNodes = scanned.map { ReelNode(it.id, it.coverageOf(window, windowArea)) }
+            if (detectReelSurface(foregroundPackage, reelNodes, browserUrl) != null) {
+                bounceOutOfReels()
+            }
         }
     }
 
+    private fun updateFeedOverlay(
+        foregroundPackage: String,
+        scanned: List<ScannedNode>,
+        window: Rect,
+    ) {
+        val screen = FeedRegion(window.left, window.top, window.right, window.bottom)
+        val feedNodes = scanned.map { FeedNode(it.id, it.left, it.top, it.right, it.bottom) }
+        val detection = detectFeedSurface(foregroundPackage, feedNodes, screen)
+        if (detection != null) overlay.show(detection.region) else overlay.hide()
+    }
+
     /**
-     * Level 1's entire enforcement: pop the feed off the stack and let the user land on whatever
+     * Level 1's reel enforcement: pop the feed off the stack and let the user land on whatever
      * screen was underneath it. Nothing is drawn over the app, because a full-screen block activity
      * on top of Instagram is visually indistinguishable from blocking Instagram — which is exactly
      * what this level is not. [nextBounce] handles the repetition and the dead-end cases.
@@ -150,28 +218,47 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** [WindowManager] work has to happen on the main thread; store collectors don't run there. */
+    private fun hideOverlaySoon() {
+        mainHandler.post { overlay.hide() }
+    }
+
+    /** One visible view: its id and where it sits on screen. */
+    private class ScannedNode(
+        val id: String,
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+    ) {
+        /** Share of the window this view covers, clipped to it. */
+        fun coverageOf(window: Rect, windowArea: Long): Float {
+            if (windowArea <= 0L) return 0f
+            val w = (minOf(right, window.right) - maxOf(left, window.left)).coerceAtLeast(0)
+            val h = (minOf(bottom, window.bottom) - maxOf(top, window.top)).coerceAtLeast(0)
+            return w.toLong() * h.toLong() / windowArea.toFloat()
+        }
+    }
+
     /**
      * Bounded breadth-first walk of the active window collecting every view that is **actually
-     * being shown**, with how much of the window it covers (and, for a browser, the URL/omnibox
-     * text). Bounded so a deep tree can't make each scroll event expensive.
+     * being shown**, with its on-screen bounds (and, for a browser, the URL/omnibox text). Bounded
+     * so a deep tree can't make each scroll event expensive.
      *
-     * The visibility filter is not an optimisation, it is the fix for Level 1 behaving like a
-     * whole-app block: host apps keep the reel fragment attached after the user navigates away
-     * from it, so its ids stay reachable from the root on every other screen in the app. We walk
-     * into hidden subtrees anyway rather than pruning at them — a scrolled-out container can
-     * report itself invisible while the rows inside it are on screen — and simply don't record
-     * what we can't see.
+     * The visibility filter is not an optimisation, it is what keeps Level 1 from behaving like a
+     * whole-app block: host apps keep the reel fragment attached after the user navigates away from
+     * it, so its ids stay reachable from the root on every other screen in the app. We walk into
+     * hidden subtrees anyway rather than pruning at them — a scrolled-out container can report
+     * itself invisible while the rows inside it are on screen — and simply don't record what we
+     * can't see.
      */
     private fun collectScreen(
         root: AccessibilityNodeInfo,
-        outNodes: MutableList<ReelNode>,
+        outNodes: MutableList<ScannedNode>,
         isBrowser: Boolean,
         onBrowserUrl: (String) -> Unit,
     ) {
-        val window = Rect().also { root.getBoundsInScreen(it) }
-        val windowArea = window.width().toLong() * window.height().toLong()
         val bounds = Rect()
-
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         queue.add(root)
         var visited = 0
@@ -181,7 +268,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
             val id = node.viewIdResourceName
             if (id != null && node.isVisibleToUser) {
                 node.getBoundsInScreen(bounds)
-                outNodes.add(ReelNode(id, coverageOf(bounds, window, windowArea)))
+                outNodes.add(ScannedNode(id, bounds.left, bounds.top, bounds.right, bounds.bottom))
                 if (isBrowser && BROWSER_URL_NODE_ID_MARKERS.any { id.contains(it) }) {
                     node.text?.toString()?.takeIf { it.isNotBlank() }?.let(onBrowserUrl)
                 }
@@ -192,27 +279,27 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
     }
 
-    /**
-     * Share of the window a view occupies, clipped to the window itself. Clipping matters because
-     * a pager keeps its neighbouring pages laid out one screen-width to the side: full-size, but
-     * entirely off-screen, and so not something the user is looking at.
-     */
-    private fun coverageOf(node: Rect, window: Rect, windowArea: Long): Float {
-        if (windowArea <= 0L) return 0f
-        val width = (minOf(node.right, window.right) - maxOf(node.left, window.left)).coerceAtLeast(0)
-        val height = (minOf(node.bottom, window.bottom) - maxOf(node.top, window.top)).coerceAtLeast(0)
-        return width.toLong() * height.toLong() / windowArea.toFloat()
-    }
-
     override fun onInterrupt() = Unit
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        overlay.hide()
+        return super.onUnbind(intent)
+    }
 
     override fun onDestroy() {
         super.onDestroy()
+        mainHandler.removeCallbacksAndMessages(null)
+        overlay.hide()
         serviceJob.cancel()
     }
 
     private companion object {
-        const val REEL_SCAN_THROTTLE_MS = 400L
-        const val MAX_NODES = 600
+        const val SCAN_THROTTLE_MS = 400L
+
+        /**
+         * Raised from the reel-only days: feed rows sit deeper than a reel player's container, and
+         * a budget that stopped short of them would read as "no feed here" and take the block down.
+         */
+        const val MAX_NODES = 900
     }
 }
