@@ -132,6 +132,67 @@ class ReelRulesTest {
         assertTrue(detectReelSurface("com.instagram.android", ids, null) != null)
     }
 
+    @Test fun `a reel view left over from a screen the user has navigated away from is ignored`() {
+        // Instagram doesn't detach the Reels fragment when you leave it, so its ids stay reachable
+        // from the window root while the user is in DMs. This is what made Level 1 bounce out of
+        // the whole app instead of just the feed.
+        val nodes = listOf(
+            ReelNode("com.instagram.android:id/direct_inbox_recyclerview", screenCoverage = 0.9f),
+            ReelNode("com.instagram.android:id/clips_viewer_view_pager", screenCoverage = 0f),
+        )
+        assertNull(detectReelSurface("com.instagram.android", nodes, browserUrlText = null))
+    }
+
+    @Test fun `a reel preview embedded in the main feed is not the viewer`() {
+        val nodes = listOf(
+            ReelNode("com.instagram.android:id/row_feed_photo_imageview", screenCoverage = 0.4f),
+            ReelNode("com.instagram.android:id/clips_video_container", screenCoverage = 0.3f),
+        )
+        assertNull(detectReelSurface("com.instagram.android", nodes, browserUrlText = null))
+    }
+
+    @Test fun `the full-screen viewer is still detected`() {
+        val nodes = listOf(
+            ReelNode("com.instagram.android:id/clips_viewer_view_pager", screenCoverage = 0.97f),
+            ReelNode("com.instagram.android:id/clips_tab", screenCoverage = 0.05f),
+        )
+        val hit = detectReelSurface("com.instagram.android", nodes, browserUrlText = null)
+        assertEquals("clips_viewer", hit?.via)
+    }
+
+    @Test fun `small chrome alone does not trigger but does not mask the player either`() {
+        val toolbar = ReelNode("com.instagram.android:id/reel_item_toolbar_container", 0.08f)
+        assertNull(detectReelSurface("com.instagram.android", listOf(toolbar), null))
+
+        // The same toolbar sitting on top of the real player must not drag the match down with it:
+        // detection takes the largest matching view, not the first one it walks past.
+        val player = ReelNode("com.instagram.android:id/clips_viewer_view_pager", 0.95f)
+        assertEquals(
+            "clips_viewer",
+            detectReelSurface("com.instagram.android", listOf(toolbar, player), null)?.via,
+        )
+    }
+
+    @Test fun `a viewer sitting exactly at the coverage threshold counts`() {
+        val nodes = listOf(ReelNode("com.google.android.youtube:id/reel_recycler", MIN_REEL_COVERAGE))
+        assertEquals("YouTube Shorts", detectReelSurface("com.google.android.youtube", nodes, null)?.platform)
+    }
+
+    @Test fun `whole-app platforms need no geometry at all`() {
+        // TikTok reports nothing useful here, and doesn't have to: the whole app is the feed.
+        val hit = detectReelSurface("com.zhiliaoapp.musically", emptyList(), browserUrlText = null)
+        assertEquals("whole-app", hit?.via)
+    }
+
+    @Test fun `browser url detection is unaffected by view geometry`() {
+        val hit = detectReelSurface(
+            "com.android.chrome",
+            listOf(ReelNode("com.android.chrome:id/url_bar", screenCoverage = 0.04f)),
+            browserUrlText = "https://m.youtube.com/shorts/abc123",
+        )
+        assertEquals("Web short-form", hit?.platform)
+    }
+
     @Test fun `an id that is both a viewer match and an entry point never counts`() {
         val instagram = requireNotNull(reelPlatformFor("com.instagram.android"))
         assertTrue(instagram.isEntryPoint("com.instagram.android:id/clips_tab"))

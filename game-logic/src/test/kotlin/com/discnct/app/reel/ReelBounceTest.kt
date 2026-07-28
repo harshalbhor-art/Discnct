@@ -46,7 +46,7 @@ class ReelBounceTest {
         assertEquals(BounceAction.Home, nextBounce(state, now).action)
     }
 
-    @Test fun `escalating to Home resets the streak`() {
+    @Test fun `escalating to Home resets the streak and stands down`() {
         var state = BounceState()
         var now = 0L
         repeat(MAX_CONSECUTIVE_BACKS + 1) {
@@ -54,10 +54,39 @@ class ReelBounceTest {
             state = nextBounce(state, now).state
         }
         assertEquals(0, state.consecutiveBacks)
+        val escalatedAt = now
 
-        // And the next reel opened straight afterwards gets a plain Back, not another Home.
+        // Home is the last thing we try. Anything still detected right after it is far more likely
+        // to be us misreading the screen than a reel that survived being sent home, so we stop.
         now += BOUNCE_COOLDOWN_MS
-        assertEquals(BounceAction.Back, nextBounce(state, now).action)
+        assertEquals(BounceAction.None, nextBounce(state, now).action)
+        assertEquals(BounceAction.None, nextBounce(state, escalatedAt + BOUNCE_BACKOFF_MS - 1).action)
+
+        // Once the backoff expires the blocker is armed again, from a clean streak.
+        val resumed = nextBounce(state, escalatedAt + BOUNCE_BACKOFF_MS)
+        assertEquals(BounceAction.Back, resumed.action)
+        assertEquals(1, resumed.state.consecutiveBacks)
+    }
+
+    @Test fun `the backoff holds even while sightings keep arriving`() {
+        // A stuck detection produces an unbroken stream of sightings, so the backoff has to be
+        // measured from the escalation and not from the last thing we looked at.
+        var state = nextBounce(BounceState(), nowMs = 0).state
+        var now = 0L
+        repeat(MAX_CONSECUTIVE_BACKS) {
+            now += BOUNCE_COOLDOWN_MS
+            state = nextBounce(state, now).state
+        }
+        val escalatedAt = now
+
+        var now2 = escalatedAt + 100
+        while (now2 < escalatedAt + BOUNCE_BACKOFF_MS) {
+            val decision = nextBounce(state, now2)
+            assertEquals(BounceAction.None, decision.action)
+            state = decision.state
+            now2 += 100
+        }
+        assertEquals(BounceAction.Back, nextBounce(state, escalatedAt + BOUNCE_BACKOFF_MS).action)
     }
 
     @Test fun `a bounce long after the last one starts a fresh streak`() {
@@ -81,18 +110,22 @@ class ReelBounceTest {
         assertEquals(2, decision.state.consecutiveBacks)
     }
 
-    @Test fun `an unbounded run of reel sightings never gets stuck sending Home`() {
-        // The failure this guards against is a reel surface that survives Home as well as Back:
-        // if the streak never reset we'd send Home on every event from then on, forever.
+    @Test fun `an unbounded run of reel sightings cannot hold the user hostage`() {
+        // The failure this guards against is a detection we are simply wrong about, which then
+        // never stops: every event throws the user out of whatever they were doing. Over 36
+        // seconds of solid misfiring the user must be left alone for the clear majority of it.
         var state = BounceState()
         var now = 0L
         var homes = 0
+        var actions = 0
         repeat(40) {
             now += BOUNCE_COOLDOWN_MS
             val decision = nextBounce(state, now)
             if (decision.action == BounceAction.Home) homes++
+            if (decision.action != BounceAction.None) actions++
             state = decision.state
         }
-        assertEquals(10, homes)
+        assertEquals(1, homes)
+        assertEquals(7, actions)
     }
 }

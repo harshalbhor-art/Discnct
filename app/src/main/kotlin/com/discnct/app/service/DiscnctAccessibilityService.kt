@@ -2,6 +2,7 @@ package com.discnct.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.graphics.Rect
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -9,6 +10,7 @@ import com.discnct.app.reel.BROWSER_URL_NODE_ID_MARKERS
 import com.discnct.app.reel.BounceAction
 import com.discnct.app.reel.BounceState
 import com.discnct.app.reel.REEL_BROWSER_PACKAGES
+import com.discnct.app.reel.ReelNode
 import com.discnct.app.reel.detectReelSurface
 import com.discnct.app.reel.nextBounce
 import com.discnct.app.ui.applist.BlockListStore
@@ -116,18 +118,18 @@ class DiscnctAccessibilityService : AccessibilityService() {
         lastReelScanAtMs = now
 
         val root = rootInActiveWindow ?: return
-        val nodeIds = HashSet<String>()
+        val nodes = ArrayList<ReelNode>()
         var browserUrl: String? = null
         val isBrowser = foregroundPackage in REEL_BROWSER_PACKAGES
 
         try {
-            collectScreen(root, nodeIds, isBrowser) { url -> browserUrl = url }
+            collectScreen(root, nodes, isBrowser) { url -> browserUrl = url }
         } finally {
             @Suppress("DEPRECATION")
             root.recycle()
         }
 
-        if (detectReelSurface(foregroundPackage, nodeIds, browserUrl) != null) {
+        if (detectReelSurface(foregroundPackage, nodes, browserUrl) != null) {
             bounceOutOfReels()
         }
     }
@@ -149,15 +151,27 @@ class DiscnctAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Bounded breadth-first walk of the active window collecting every view resource-id (and, for a
-     * browser, the URL/omnibox text). Bounded so a deep tree can't make each scroll event expensive.
+     * Bounded breadth-first walk of the active window collecting every view that is **actually
+     * being shown**, with how much of the window it covers (and, for a browser, the URL/omnibox
+     * text). Bounded so a deep tree can't make each scroll event expensive.
+     *
+     * The visibility filter is not an optimisation, it is the fix for Level 1 behaving like a
+     * whole-app block: host apps keep the reel fragment attached after the user navigates away
+     * from it, so its ids stay reachable from the root on every other screen in the app. We walk
+     * into hidden subtrees anyway rather than pruning at them — a scrolled-out container can
+     * report itself invisible while the rows inside it are on screen — and simply don't record
+     * what we can't see.
      */
     private fun collectScreen(
         root: AccessibilityNodeInfo,
-        outIds: MutableSet<String>,
+        outNodes: MutableList<ReelNode>,
         isBrowser: Boolean,
         onBrowserUrl: (String) -> Unit,
     ) {
+        val window = Rect().also { root.getBoundsInScreen(it) }
+        val windowArea = window.width().toLong() * window.height().toLong()
+        val bounds = Rect()
+
         val queue = ArrayDeque<AccessibilityNodeInfo>()
         queue.add(root)
         var visited = 0
@@ -165,8 +179,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
             val node = queue.removeFirst()
             visited++
             val id = node.viewIdResourceName
-            if (id != null) {
-                outIds.add(id)
+            if (id != null && node.isVisibleToUser) {
+                node.getBoundsInScreen(bounds)
+                outNodes.add(ReelNode(id, coverageOf(bounds, window, windowArea)))
                 if (isBrowser && BROWSER_URL_NODE_ID_MARKERS.any { id.contains(it) }) {
                     node.text?.toString()?.takeIf { it.isNotBlank() }?.let(onBrowserUrl)
                 }
@@ -175,6 +190,18 @@ class DiscnctAccessibilityService : AccessibilityService() {
                 node.getChild(i)?.let { queue.add(it) }
             }
         }
+    }
+
+    /**
+     * Share of the window a view occupies, clipped to the window itself. Clipping matters because
+     * a pager keeps its neighbouring pages laid out one screen-width to the side: full-size, but
+     * entirely off-screen, and so not something the user is looking at.
+     */
+    private fun coverageOf(node: Rect, window: Rect, windowArea: Long): Float {
+        if (windowArea <= 0L) return 0f
+        val width = (minOf(node.right, window.right) - maxOf(node.left, window.left)).coerceAtLeast(0)
+        val height = (minOf(node.bottom, window.bottom) - maxOf(node.top, window.top)).coerceAtLeast(0)
+        return width.toLong() * height.toLong() / windowArea.toFloat()
     }
 
     override fun onInterrupt() = Unit

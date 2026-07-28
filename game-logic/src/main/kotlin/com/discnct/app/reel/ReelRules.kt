@@ -11,6 +11,9 @@ package com.discnct.app.reel
  * whole app. For browsers there is no such view; instead we read the URL/omnibox text and match
  * known short-form paths (youtube.com/shorts, instagram.com/reels, ...).
  *
+ * Ids alone are not enough, though — see [MIN_REEL_COVERAGE]. A matched view also has to be big
+ * enough to be the thing the user is looking at.
+ *
  * Everything here is a plain string table + pure function so it can be unit-tested on the JVM and
  * extended by anyone as apps rename their views — no device or emulator required.
  */
@@ -148,6 +151,34 @@ val BLOCKED_URL_MARKERS: List<String> = listOf(
 data class ReelDetection(val platform: String, val via: String)
 
 /**
+ * One view that is **on screen right now**, with the share of the app window it covers (0f..1f).
+ *
+ * The service only builds these for nodes that report themselves visible, and measures coverage as
+ * the node's on-screen bounds clipped to the window. A view that exists in the hierarchy but isn't
+ * being shown comes out at zero.
+ */
+data class ReelNode(val viewId: String, val screenCoverage: Float = 1f)
+
+/**
+ * How much of the window a matched view has to cover before it counts as *being inside* the reel
+ * viewer rather than merely near one.
+ *
+ * Id matching alone made Level 1 behave like a whole-app block, for two separate reasons:
+ *
+ *  - **Retained fragments.** Instagram doesn't tear the Reels fragment out of the hierarchy when
+ *    you navigate away from it, so `clips_viewer_view_pager` is still reachable from the window
+ *    root while the user is reading DMs or looking at a profile. Every scroll event re-detected it
+ *    and bounced, which from the user's side is the whole app refusing to stay open.
+ *  - **Inline previews.** The home feed and Explore both render reel units using the same ids as
+ *    the full-screen player.
+ *
+ * Neither survives a size check: a detached fragment has collapsed or off-screen bounds, an inline
+ * preview is a card inside a scrolling list, and the real viewer is edge-to-edge. The threshold
+ * sits low enough to tolerate the status bar and a bottom nav still being drawn over the player.
+ */
+const val MIN_REEL_COVERAGE = 0.55f
+
+/**
  * True if [nodeId] is one of this platform's *entry points* — a tab button, a shelf, a story ring.
  * Being on a screen that merely offers a way into the feed is not being in the feed.
  */
@@ -165,22 +196,38 @@ fun isReelHostPackage(packageName: String): Boolean =
 /**
  * Decide whether a reel/short is currently on screen.
  *
+ * A hit needs two things to line up: a view id that only the viewer mounts, **and** that view
+ * being large enough to be what the user is actually looking at ([MIN_REEL_COVERAGE]).
+ *
  * @param packageName the foreground app.
- * @param presentNodeIds every view resource-id currently visible in the active window.
+ * @param visibleNodes every view currently visible in the active window, with its screen coverage.
  * @param browserUrlText the URL/omnibox text, when [packageName] is a browser (else null).
  * @return a [ReelDetection] when a reel surface is showing, or null.
  */
 fun detectReelSurface(
     packageName: String,
-    presentNodeIds: Set<String>,
+    visibleNodes: List<ReelNode>,
     browserUrlText: String?,
 ): ReelDetection? {
     reelPlatformFor(packageName)?.let { platform ->
         if (platform.isWholeAppReels) return ReelDetection(platform.displayName, "whole-app")
-        val marker = platform.reelNodeIdMarkers.firstOrNull { needle ->
-            presentNodeIds.any { id -> id.contains(needle) && !platform.isEntryPoint(id) }
+
+        // The *largest* match wins rather than the first one found. A reel screen mounts the
+        // full-bleed player alongside small chrome that also matches (the overflow toolbar), and
+        // only the player's size can tell us the viewer is really open.
+        var bestMarker: String? = null
+        var bestCoverage = 0f
+        for (node in visibleNodes) {
+            if (platform.isEntryPoint(node.viewId)) continue
+            val marker = platform.reelNodeIdMarkers.firstOrNull { node.viewId.contains(it) } ?: continue
+            if (bestMarker == null || node.screenCoverage > bestCoverage) {
+                bestMarker = marker
+                bestCoverage = node.screenCoverage
+            }
         }
-        if (marker != null) return ReelDetection(platform.displayName, marker)
+        bestMarker?.let { marker ->
+            if (bestCoverage >= MIN_REEL_COVERAGE) return ReelDetection(platform.displayName, marker)
+        }
     }
 
     if (packageName in REEL_BROWSER_PACKAGES && !browserUrlText.isNullOrBlank()) {
@@ -191,3 +238,14 @@ fun detectReelSurface(
 
     return null
 }
+
+/**
+ * Id-only detection, for callers that have no geometry to offer — every id is treated as
+ * full-screen. Browser URL matching needs no view at all, so this is the whole story there.
+ */
+fun detectReelSurface(
+    packageName: String,
+    presentNodeIds: Set<String>,
+    browserUrlText: String?,
+): ReelDetection? =
+    detectReelSurface(packageName, presentNodeIds.map { ReelNode(it) }, browserUrlText)
