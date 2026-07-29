@@ -4,13 +4,12 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.PixelFormat
-import android.os.Build
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
-import androidx.annotation.RequiresApi
 import com.discnct.app.feed.FeedDetection
 import com.discnct.app.feed.FeedRegion
 import kotlin.math.abs
@@ -24,16 +23,20 @@ import kotlin.math.abs
  * feed can't be scrolled, while the top bar, the bottom navigation and everything around them still
  * work. Sized to the screen it would be an app block, which is the level above this one.
  *
- * Two things here are not obvious:
+ * Three things here are not obvious:
  *
- *  * **The blur belongs to the window, not the view.** Nothing we draw can blur pixels we don't
- *    own; [WindowManager.LayoutParams.blurBehindRadius] asks the compositor to do it for us. It
- *    needs Android 12, a translucent window, and cross-window blur to be switched on — none of
- *    which is guaranteed, so [FeedOverlayView.frosted] carries the answer through to the tint.
+ *  * **The frosting is drawn, not requested.** The obvious way is
+ *    [WindowManager.LayoutParams.blurBehindRadius], and it is wrong here: blur-behind goes the same
+ *    way as `FLAG_DIM_BEHIND` and applies to everything behind the window rather than the window's
+ *    own rectangle, so a cover correctly sized to the feed still frosted the bottom navigation.
+ *    Nothing bounds it. A still of what we're covering, drawn inside our own bounds, cannot escape
+ *    them — see [FeedFrost].
  *  * **Appearing is animated, and so is leaving.** A cover that snaps on mid-scroll reads as a
  *    glitch in Instagram; the same cover fading up over half a second reads as something arriving
- *    on purpose. Both the view's alpha and the blur radius are driven off one animator, so the
- *    glass thickens as the tint darkens instead of the blur popping in fully formed.
+ *    on purpose. Reversing mid-fade travels only the distance that's left.
+ *  * **Covering a feed has to silence it too.** A reel under the glass keeps playing, and its
+ *    controls are behind a window that eats every touch. [FeedSilencer] holds audio focus for
+ *    exactly as long as the cover is up.
  *
  * Every method must be called from the main thread; [WindowManager] and [ValueAnimator] both need
  * it, and the accessibility service's callbacks already arrive there.
@@ -42,6 +45,8 @@ class FeedOverlayController(private val context: Context) {
 
     private val windowManager =
         context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    private val silencer = FeedSilencer(context)
 
     private var view: FeedOverlayView? = null
     private var params: WindowManager.LayoutParams? = null
@@ -55,9 +60,6 @@ class FeedOverlayController(private val context: Context) {
     /** Where it has got to. 0 = fully faded out, 1 = fully covered. */
     private var progress = 0f
 
-    private var blurring = false
-    private var appliedBlur = -1
-
     /** True while anything is on screen, including a cover that is still fading out. */
     val isShowing: Boolean get() = view != null
 
@@ -66,8 +68,12 @@ class FeedOverlayController(private val context: Context) {
      * does nothing without the overlay permission — the setup flow asks for it, but it can be
      * revoked at any time and a cover that crashed on being switched off would be worse than one
      * that stops working.
+     *
+     * @param frost the still to frost with, captured before this window existed. Only used when the
+     *   window is being created: the glass is deliberately frozen, so later scans pass null and the
+     *   first still stays.
      */
-    fun show(detection: FeedDetection) {
+    fun show(detection: FeedDetection, frost: Bitmap? = null) {
         if (!Settings.canDrawOverlays(context)) return
         val bounds = detection.feedRegion
         if (bounds.isEmpty) {
@@ -77,9 +83,8 @@ class FeedOverlayController(private val context: Context) {
 
         val existing = view
         if (existing == null) {
-            blurring = blurAvailable()
             val fresh = FeedOverlayView(context).apply {
-                frosted = blurring
+                setFrost(frost)
                 alpha = 0f
             }
             val freshParams = layoutParamsFor(bounds)
@@ -90,7 +95,7 @@ class FeedOverlayController(private val context: Context) {
             region = bounds
             progress = 0f
             goal = 0f
-            appliedBlur = -1
+            silencer.silence()
         } else if (region != bounds) {
             val current = params ?: return
             current.x = bounds.left
@@ -159,30 +164,6 @@ class FeedOverlayController(private val context: Context) {
     private fun applyProgress(value: Float) {
         progress = value
         view?.alpha = value
-        if (blurring) applyBlur((BLUR_RADIUS_PX * value).toInt())
-    }
-
-    /**
-     * Push the blur radius to the window, in steps.
-     *
-     * Every change is a [WindowManager.updateViewLayout], which relayouts the window — at sixty a
-     * second for half a second that is a lot of churn for a difference nobody can see. Rounding to
-     * [BLUR_STEP_PX] cuts it to a handful of updates and looks identical.
-     */
-    private fun applyBlur(radius: Int) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-        val current = view ?: return
-        val currentParams = params ?: return
-        val stepped = (radius / BLUR_STEP_PX) * BLUR_STEP_PX
-        if (stepped == appliedBlur) return
-        appliedBlur = stepped
-        setBlurRadius(currentParams, stepped)
-        runCatching { windowManager.updateViewLayout(current, currentParams) }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.S)
-    private fun setBlurRadius(target: WindowManager.LayoutParams, radius: Int) {
-        target.blurBehindRadius = radius
     }
 
     private fun detach() {
@@ -192,16 +173,11 @@ class FeedOverlayController(private val context: Context) {
         region = null
         progress = 0f
         goal = 0f
-        appliedBlur = -1
+        // Before removing the window, so a still nobody can see isn't held until the next GC.
+        going.setFrost(null)
         runCatching { windowManager.removeView(going) }
+        silencer.release()
     }
-
-    private fun blurAvailable(): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && crossWindowBlurEnabled()
-
-    @RequiresApi(Build.VERSION_CODES.S)
-    private fun crossWindowBlurEnabled(): Boolean =
-        runCatching { windowManager.isCrossWindowBlurEnabled }.getOrDefault(false)
 
     private fun layoutParamsFor(bounds: FeedRegion): WindowManager.LayoutParams =
         WindowManager.LayoutParams(
@@ -222,10 +198,8 @@ class FeedOverlayController(private val context: Context) {
             // exactly one status bar too low.
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                if (blurring) WindowManager.LayoutParams.FLAG_BLUR_BEHIND else 0,
-            // Translucent, not opaque: both the fade and the blur behind need the window to
-            // actually composite with what is under it.
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            // Translucent, not opaque: the fade needs the window to composite with what's under it.
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -234,9 +208,5 @@ class FeedOverlayController(private val context: Context) {
     private companion object {
         /** Half a second each way, as asked for. */
         const val FADE_MILLIS = 500f
-
-        /** Enough to make text unreadable while leaving the shape of the app recognisable. */
-        const val BLUR_RADIUS_PX = 72f
-        const val BLUR_STEP_PX = 6
     }
 }

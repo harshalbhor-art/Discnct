@@ -23,11 +23,12 @@ import android.view.View
  * pane of dark glass over the whole scrolling surface has no alignment to get wrong, and it says
  * the thing more plainly anyway.
  *
- * The blur itself is not drawn here — it's [WindowManager.LayoutParams.blurBehindRadius], applied
- * by the compositor to whatever is behind this window, which is the only way to blur pixels we
- * don't own. All this view contributes is the tint on top: enough to make the feed unreadable, not
- * so much that the app disappears and the cover reads as a crash. How dark that tint is depends on
- * whether the blur is actually live — see [frosted].
+ * The glass is a still of what's underneath, shrunk and stretched back out — see [FeedFrost]. It's
+ * drawn here rather than asked of the compositor because the system's blur-behind cannot be
+ * confined to a rectangle, and a cover that frosts the bottom navigation along with the feed is an
+ * app block wearing a disguise. Over the still goes a tint: enough to make the feed unreadable, not
+ * so much that the app disappears and the cover reads as a crash. With no still to work from the
+ * tint has to do the whole job alone, so it goes much darker.
  *
  * Drawn with a plain [Canvas] rather than Compose. A ComposeView added straight to the
  * WindowManager needs a lifecycle owner, a saved-state registry and a recomposer attached by hand
@@ -35,21 +36,6 @@ import android.view.View
  * ways to leak one.
  */
 class FeedOverlayView(context: Context) : View(context) {
-
-    /**
-     * True when the system is blurring behind this window.
-     *
-     * Cross-window blur needs Android 12 and can be switched off at any time — by battery saver, by
-     * the developer options toggle, or by the device simply not supporting it. Without it the tint
-     * is the only thing standing between the user and the feed, so it goes almost opaque; with it,
-     * it can stay light enough that the shape of the app still shows through the glass.
-     */
-    var frosted: Boolean = false
-        set(value) {
-            if (field == value) return
-            field = value
-            invalidate()
-        }
 
     // Not named `background`: View already has getBackground(), and a Kotlin property of that name
     // generates a getter with the same JVM signature and a different return type.
@@ -68,15 +54,36 @@ class FeedOverlayView(context: Context) : View(context) {
     }
 
     private val card = RectF()
+    private val pane = RectF()
     private val clip = Path()
     private val artwork = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
+    private var frost: Bitmap? = null
     private var cachedPoster: Bitmap? = null
     private var posterMissing = false
     private var glowShaderSide = 0f
 
+    /**
+     * Take the still that becomes the glass: a shrunken copy of what this window is covering,
+     * stretched back over the whole pane. Null falls back to a tint dark enough to stand alone.
+     */
+    fun setFrost(bitmap: Bitmap?) {
+        if (frost === bitmap) return
+        frost = bitmap
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
-        canvas.drawColor(if (frosted) SCRIM_FROSTED else SCRIM_FLAT)
+        val still = frost
+        if (still != null) {
+            pane.set(0f, 0f, width.toFloat(), height.toFloat())
+            // Stretching a 160px-wide still back to full width is where the blur comes from.
+            canvas.drawBitmap(still, null, pane, artwork)
+            canvas.drawColor(SCRIM_FROSTED)
+        } else {
+            // Nothing to frost, so the tint is all that stands between the user and the feed.
+            canvas.drawColor(SCRIM_FLAT)
+        }
         if (!layOutCard()) return
 
         val radius = card.width() * CARD_CORNER_FRACTION
@@ -208,11 +215,12 @@ class FeedOverlayView(context: Context) : View(context) {
         /** Any size works — the text is scaled off what it measures at this one. */
         const val MEASURE_SIZE = 100f
 
-        // The tint over the blurred feed. Dark enough that nothing is readable through it; light
-        // enough that the app is visibly still there, behind glass, rather than gone.
-        const val SCRIM_FROSTED = 0xC4000000.toInt()
+        // The tint over the still. The still is already unreadable — it's 160px stretched across a
+        // phone — so this is here for mood rather than concealment, and stays light enough that
+        // the shape of the app shows through and the cover reads as glass rather than a crash.
+        const val SCRIM_FROSTED = 0xB3000000.toInt()
 
-        /** No blur to hide behind, so the tint has to do all of it on its own. */
+        /** No still to hide behind, so the tint has to do the whole job on its own. */
         const val SCRIM_FLAT = 0xEB000000.toInt()
 
         const val CARD_FILL = 0x1FFFFFFF
