@@ -38,9 +38,9 @@ import kotlinx.coroutines.launch
  *     view ids or a browser's URL), bounce the user out with a global Back.
  *
  *  3. **Feed cover (Level 1):** for apps on the feed-block list, find the scrolling timeline with
- *     [detectFeedSurface] and lay an empty shell of the app over it with [FeedOverlayController].
- *     Nothing is hidden — we can't touch another app's views — the feed is covered where it sits,
- *     so the top bar, the bottom navigation and the user's own story slot all keep working.
+ *     [detectFeedSurface] and lay frosted glass over it with [FeedOverlayController]. Nothing is
+ *     hidden — we can't touch another app's views — the feed is covered where it sits, so the top
+ *     bar and the bottom navigation both keep working.
  *
  * Both Level 1 blocks are surgical: the rest of the host app stays usable, and neither has anything
  * to dismiss or play through.
@@ -286,8 +286,8 @@ class DiscnctAccessibilityService : AccessibilityService() {
             if (node.isVisibleToUser) {
                 node.getBoundsInScreen(bounds)
                 // Views with no id are kept too. They match no marker and so can't trigger
-                // anything, but the feed cover measures its shell off real geometry, and plenty of
-                // what it needs to measure — story rings especially — carries no id at all.
+                // anything, but the feed cover finds the bars it must stay clear of by shape, and
+                // an unnamed view is as good a rectangle as any other.
                 outNodes.add(
                     ScannedNode(id ?: "", bounds.left, bounds.top, bounds.right, bounds.bottom),
                 )
@@ -304,14 +304,15 @@ class DiscnctAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: Intent?): Boolean {
-        overlay.hide()
+        // dispose, not hide: a fade needs something alive to finish it and remove the window.
+        overlay.dispose()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         mainHandler.removeCallbacksAndMessages(null)
-        overlay.hide()
+        overlay.dispose()
         serviceJob.cancel()
     }
 

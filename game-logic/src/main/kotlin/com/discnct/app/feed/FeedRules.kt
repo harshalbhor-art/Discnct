@@ -4,8 +4,8 @@ package com.discnct.app.feed
  * Pure, Android-free rules for finding the *scrolling feed* inside a social app.
  *
  * This is the second half of Level 1. The reel blocker bounces you out of a full-screen short-form
- * viewer; the feed cover leaves you exactly where you are and covers the endless-scroll surface
- * with an empty shell, so DMs, search, posting and profiles keep working while the trap doesn't.
+ * viewer; the feed cover leaves you exactly where you are and lays frosted glass over the
+ * endless-scroll surface, so DMs, search, posting and profiles keep working while the trap doesn't.
  *
  * Detection is a harder problem here than it is for reels, and it's worth being explicit about why.
  * A reel viewer mounts distinctively named views — `clips_viewer`, `reel_recycler` — so matching an
@@ -21,10 +21,11 @@ package com.discnct.app.feed
  * The second condition is what distinguishes the home feed from every other list in the app, and
  * it's why [FeedPlatform.itemMarkers] is not optional. Nothing is covered without one.
  *
- * What comes back is deliberately *two* rectangles rather than one. The point of this level is
- * minimum access, not no access: the top bar (logo, new post, notifications), the bottom navigation
- * and the user's own story slot all have to stay live, because they're how you post and how you
- * leave. Only the parts built to be scrolled forever get covered.
+ * What comes back is one rectangle: everything between the top bar and the bottom navigation. The
+ * point of this level is minimum access, not no access — the logo, the new-post and notification
+ * buttons and the whole bottom navigation stay live, because they're how you post and how you
+ * leave. Only the part built to be scrolled forever gets covered, and it gets covered whole:
+ * stories are the same infinite surface as the timeline under them.
  */
 
 /** A view visible on screen, with its on-screen bounds in pixels. */
@@ -40,7 +41,7 @@ data class FeedNode(
     val area: Long get() = width.toLong() * height.toLong()
 }
 
-/** A rectangle in screen pixels. Used for both the screen itself and the regions we cover. */
+/** A rectangle in screen pixels. Used for both the screen itself and the region we cover. */
 data class FeedRegion(
     val left: Int,
     val top: Int,
@@ -69,7 +70,10 @@ data class FeedPlatform(
      * overlay that swallowed them would turn a feed cover into an app block.
      */
     val chromeMarkers: List<String>,
-    /** The horizontal stories strip, when the app names it. See [storiesStrip] for the fallback. */
+    /**
+     * The horizontal stories strip. It gets covered along with everything else; the reason it's
+     * named at all is [clipToBars], which must not mistake it for a bar and start the cover below it.
+     */
     val storyTrayMarkers: List<String>,
 )
 
@@ -123,15 +127,15 @@ const val MIN_FEED_CONTAINER_COVERAGE = 0.35f
 const val MIN_FEED_REGION_COVERAGE = 0.20f
 
 /**
- * Bands at the top and bottom of the screen that are **never** covered, whatever the view tree says.
+ * Bands at the top and bottom of the screen that are never covered **when we couldn't find the bar
+ * itself**.
  *
- * These exist because id-matched chrome is the part of this file most likely to be wrong: bar ids
- * change between app versions, and a bar we fail to recognise is a bar we cover. Covering the
- * bottom navigation makes the app unusable and looks, from the user's side, exactly like a whole-app
- * block. So the geometry gets the final say and the ids can only ever clip *further* in.
- *
- * Sized from what these bars actually measure — roughly 72dp each once the status bar and the
- * gesture handle are counted — so on a normal phone the guarantee costs a sliver of feed at most.
+ * These are a fallback, not an extra constraint, and the distinction is what fixes a live strip of
+ * feed showing under the cover: a nav bar measures about 150px on a 1080×2400 screen, this band is
+ * 192px, and applying both left 42px of real timeline scrolling away below the glass. When a bar is
+ * recognised — by id or by shape — its own edge is exact and the band has nothing to add. The band
+ * only speaks up when nothing was recognised at all, which is the case it was written for: an id we
+ * don't know is a bar we don't clip, and a covered bottom navigation makes the app unusable.
  */
 const val MIN_TOP_CHROME_FRACTION = 0.08f
 const val MIN_BOTTOM_CHROME_FRACTION = 0.08f
@@ -149,59 +153,14 @@ const val BAR_MAX_HEIGHT_FRACTION = 0.10f
 const val BAR_EDGE_ZONE_FRACTION = 0.15f
 
 /**
- * A gap between the top chrome and the first feed row taller than this is the stories strip.
+ * What we decided to cover: one rectangle, from under the top bar to above the bottom navigation.
  *
- * Inferring it from the gap rather than from an id is what makes the strip survive an app update:
- * the ids we'd match on are the ones most likely to be renamed, while "there is something between
- * the top bar and the first post" stays true. When the user scrolls the strip away the gap closes
- * on its own and the whole area goes back to being feed.
- */
-const val MIN_STORY_TRAY_HEIGHT_FRACTION = 0.03f
-
-/**
- * And a band taller than this isn't a stories strip, whatever it claims to be.
- *
- * The strip is about 110dp on a phone. Anything much taller is a banner, a promo card or a
- * misidentified container, and treating it as the strip would leave a tall live column of real
- * feed showing through the gap we keep for the user's own story.
- */
-const val MAX_STORY_TRAY_HEIGHT_FRACTION = 0.16f
-
-/**
- * The left slice of the stories strip left uncovered: the user's own story.
- *
- * Posting is not the habit this level is aimed at, and "add to your story" is the one control in
- * that strip that isn't someone else's content to scroll through.
- */
-const val SELF_STORY_WIDTH_FRACTION = 0.22f
-
-/**
- * How many avatar-shaped views in a row it takes to call something the stories strip.
- *
- * Three, because two is a coincidence — a post header's avatar next to a button would make two —
- * and the strip always shows more than that when it's there at all.
- */
-const val MIN_STORY_ITEMS = 3
-
-/** Extra height under the rings for the names, as a share of the ring height. */
-const val STORY_LABEL_ROOM_FRACTION = 0.35f
-
-/**
- * What we decided to cover.
- *
- * @param feedRegion the timeline itself, below the stories strip and clear of both bars.
- * @param storiesRegion everyone else's stories, or null when the strip isn't on screen. The user's
- *   own slot is already excluded from this rectangle.
+ * @param feedRegion the covered area, already clear of both bars and clipped to the screen.
  */
 data class FeedDetection(
     val platform: String,
     val via: String,
     val feedRegion: FeedRegion,
-    /** The empty post cards to draw over [feedRegion], already positioned in screen pixels. */
-    val feedShapes: List<FeedShape> = emptyList(),
-    val storiesRegion: FeedRegion? = null,
-    /** The empty rings to draw over [storiesRegion], already positioned in screen pixels. */
-    val storyShapes: List<FeedShape> = emptyList(),
 )
 
 /** The feed platform for [packageName], or null if we have no rules for it. */
@@ -212,11 +171,11 @@ fun feedPlatformFor(packageName: String): FeedPlatform? =
 fun isFeedHostPackage(packageName: String): Boolean = feedPlatformFor(packageName) != null
 
 /**
- * Work out which parts of the screen to cover, or null to cover nothing.
+ * Work out what to cover, or null to cover nothing.
  *
  * Returning null is the safe answer and the common one: every screen in the app that isn't the
  * timeline should land here. The caller is expected to take the overlay down whenever this returns
- * null, so a momentary miss costs a flicker rather than a stuck cover.
+ * null, so a momentary miss costs a fade rather than a stuck cover.
  *
  * @param packageName the foreground app.
  * @param nodes every view currently visible on screen, with bounds.
@@ -246,32 +205,35 @@ fun detectFeedSurface(
     val base = container?.let { FeedRegion(it.left, it.top, it.right, it.bottom) }
         ?: unionOf(items)
 
-    val clipped =
-        clipToBars(clipToChrome(base.intersect(screen), nodes, platform), nodes, platform, screen)
-    val body = reserveChrome(clipped, screen)
-    if (body.isEmpty) return null
-
-    val tray = storiesStrip(body, nodes, items, platform, screen)
-    val feed = if (tray == null) body else FeedRegion(body.left, tray.bottom, body.right, body.bottom)
-    if (feed.isEmpty) return null
-    if (feed.area.toFloat() / screen.area < MIN_FEED_REGION_COVERAGE) return null
-
-    val trayItems = tray?.let { trayItemsIn(it, nodes, screen) } ?: emptyList()
-    val stories = tray?.let { band ->
-        FeedRegion(storiesCoverLeft(band, trayItems), band.top, band.right, band.bottom)
-            .takeUnless { it.isEmpty }
-    }
+    val byName = clipToChrome(base.intersect(screen), nodes, platform, screen)
+    val byShape = clipToBars(byName.region, nodes, platform, screen)
+    val region = reserveChrome(
+        region = byShape.region,
+        screen = screen,
+        topFound = byName.topFound || byShape.topFound,
+        bottomFound = byName.bottomFound || byShape.bottomFound,
+    )
+    if (region.isEmpty) return null
+    if (region.area.toFloat() / screen.area < MIN_FEED_REGION_COVERAGE) return null
 
     return FeedDetection(
         platform = platform.displayName,
         via = container?.viewId ?: items.first().viewId,
-        feedRegion = feed,
-        feedShapes = postShapes(feed, nodes, screen),
-        storiesRegion = stories,
-        // The user's own item is the one we left uncovered, so it isn't one to draw over.
-        storyShapes = if (stories == null) emptyList() else storyShapes(trayItems.drop(1)),
+        feedRegion = region,
     )
 }
+
+/**
+ * A clipped region, plus whether we actually recognised a bar at each edge.
+ *
+ * The flags are what let [reserveChrome] stay out of the way. An edge pinned to a bar we found is
+ * exact; an edge nobody claimed is a guess, and a guess is what the safety band is for.
+ */
+private data class Clip(
+    val region: FeedRegion,
+    val topFound: Boolean,
+    val bottomFound: Boolean,
+)
 
 /**
  * Pull the region clear of any bar at the top or bottom of the screen, found by shape.
@@ -282,15 +244,17 @@ fun detectFeedSurface(
  * indistinguishable from blocking the whole app. Shape survives a rename.
  *
  * Feed rows are excluded as candidates — a one-line comment row is wide and short too, and near the
- * bottom of the screen it would happily pass for a nav bar and shrink the cover away from it.
+ * bottom of the screen it would happily pass for a nav bar and shrink the cover away from it. The
+ * stories strip is excluded for the mirror-image reason: taken for a top bar it would push the
+ * cover below itself and leave the stories scrolling in the clear.
  */
 private fun clipToBars(
     region: FeedRegion,
     nodes: List<FeedNode>,
     platform: FeedPlatform,
     screen: FeedRegion,
-): FeedRegion {
-    if (region.isEmpty || screen.height <= 0) return region
+): Clip {
+    if (region.isEmpty || screen.height <= 0) return Clip(region, false, false)
     val minWidth = screen.width * BAR_MIN_WIDTH_FRACTION
     val maxHeight = screen.height * BAR_MAX_HEIGHT_FRACTION
     val topZone = screen.top + screen.height * BAR_EDGE_ZONE_FRACTION
@@ -298,68 +262,23 @@ private fun clipToBars(
 
     var top = region.top
     var bottom = region.bottom
+    var topFound = false
+    var bottomFound = false
     for (node in nodes) {
         if (node.height <= 0 || node.width < minWidth || node.height > maxHeight) continue
         if (platform.itemMarkers.any { node.viewId.contains(it) }) continue
         if (platform.storyTrayMarkers.any { node.viewId.contains(it) }) continue
         val centre = (node.top + node.bottom) / 2f
-        if (centre <= topZone) top = maxOf(top, node.bottom)
-        if (centre >= bottomZone) bottom = minOf(bottom, node.top)
+        if (centre <= topZone) {
+            top = maxOf(top, node.bottom)
+            topFound = true
+        }
+        if (centre >= bottomZone) {
+            bottom = minOf(bottom, node.top)
+            bottomFound = true
+        }
     }
-    return FeedRegion(region.left, top, region.right, bottom)
-}
-
-/**
- * The stories strip, if it's on screen.
- *
- * Two ways in, in order of confidence: a container the app names, or — because those names change —
- * the gap between the top of the feed body and the first post. A strip found either way is returned
- * whole; [exceptSelfStory] is what carves the user's own slot back out of it.
- */
-private fun storiesStrip(
-    body: FeedRegion,
-    nodes: List<FeedNode>,
-    items: List<FeedNode>,
-    platform: FeedPlatform,
-    screen: FeedRegion,
-): FeedRegion? {
-    val named = nodes
-        .filter { node -> platform.storyTrayMarkers.any { node.viewId.contains(it) } }
-        .filter { it.area > 0L }
-        .maxByOrNull { it.area }
-    if (named != null) {
-        val strip = FeedRegion(body.left, maxOf(named.top, body.top), body.right, named.bottom)
-            .intersect(body)
-        strip.takeIf { plausibleStrip(it, screen) }?.let { return it }
-    }
-
-    // A row of avatar-shaped views across the top of the feed *is* the strip. This beats measuring
-    // the gap to the first post, because the first post id we can match is often the photo rather
-    // than the row that holds it — and the gap down to a photo swallows the post's header with it.
-    val searchTop = FeedRegion(
-        body.left,
-        body.top,
-        body.right,
-        minOf(body.bottom, body.top + (screen.height * MAX_STORY_TRAY_HEIGHT_FRACTION).toInt()),
-    )
-    val rings = trayItemsIn(searchTop, nodes, screen)
-    if (rings.size >= MIN_STORY_ITEMS) {
-        val ringsBottom = rings.maxOf { it.bottom }
-        // Room under the rings for the names, which are their own views and often carry no id.
-        val labelRoom = ((ringsBottom - rings.minOf { it.top }) * STORY_LABEL_ROOM_FRACTION).toInt()
-        val strip = FeedRegion(body.left, body.top, body.right, minOf(ringsBottom + labelRoom, body.bottom))
-        if (plausibleStrip(strip, screen)) return strip
-    }
-
-    val firstRowTop = items.minOf { it.top }
-    val inferred = FeedRegion(body.left, body.top, body.right, minOf(firstRowTop, body.bottom))
-    return inferred.takeIf { plausibleStrip(it, screen) }
-}
-
-private fun plausibleStrip(strip: FeedRegion, screen: FeedRegion): Boolean {
-    if (strip.isEmpty) return false
-    return strip.height >= screen.height * MIN_STORY_TRAY_HEIGHT_FRACTION &&
-        strip.height <= screen.height * MAX_STORY_TRAY_HEIGHT_FRACTION
+    return Clip(FeedRegion(region.left, top, region.right, bottom), topFound, bottomFound)
 }
 
 private fun unionOf(nodes: List<FeedNode>): FeedRegion = FeedRegion(
@@ -377,39 +296,63 @@ private fun FeedRegion.intersect(other: FeedRegion): FeedRegion = FeedRegion(
 )
 
 /**
- * Pull the region clear of the top bar and the bottom navigation.
+ * Pull the region clear of the top bar and the bottom navigation, found by id.
  *
  * Chrome above the middle of the region pushes its top down; chrome below the middle pulls its
  * bottom up. Deciding by which half the bar sits in — rather than by name — means a bar we haven't
  * seen before still gets out of the way, and it keeps the rule to one line of reasoning.
+ *
+ * A match only counts as *found* if it also sits in the screen's edge zone. A `toolbar` halfway
+ * down the screen is worth clipping to but is no evidence about where the real chrome ends, and
+ * letting it stand down the safety band would be trusting the wrong thing.
  */
 private fun clipToChrome(
     region: FeedRegion,
     nodes: List<FeedNode>,
     platform: FeedPlatform,
-): FeedRegion {
-    if (region.isEmpty) return region
+    screen: FeedRegion,
+): Clip {
+    if (region.isEmpty) return Clip(region, false, false)
     var top = region.top
     var bottom = region.bottom
+    var topFound = false
+    var bottomFound = false
     val middle = (region.top + region.bottom) / 2
+    val topZone = screen.top + screen.height * BAR_EDGE_ZONE_FRACTION
+    val bottomZone = screen.bottom - screen.height * BAR_EDGE_ZONE_FRACTION
 
     for (node in nodes) {
         if (platform.chromeMarkers.none { node.viewId.contains(it) }) continue
         if (node.height <= 0 || node.right <= region.left || node.left >= region.right) continue
         if (node.bottom <= middle) {
             top = maxOf(top, node.bottom)
+            if (node.bottom <= topZone) topFound = true
         } else if (node.top >= middle) {
             bottom = minOf(bottom, node.top)
+            if (node.top >= bottomZone) bottomFound = true
         }
     }
 
-    return FeedRegion(region.left, top, region.right, bottom)
+    return Clip(FeedRegion(region.left, top, region.right, bottom), topFound, bottomFound)
 }
 
-/** Apply the bands that are never covered regardless of what the view tree claims. */
-private fun reserveChrome(region: FeedRegion, screen: FeedRegion): FeedRegion = FeedRegion(
+/** Apply the safety bands, but only at an edge where no bar was recognised. See the constants. */
+private fun reserveChrome(
+    region: FeedRegion,
+    screen: FeedRegion,
+    topFound: Boolean,
+    bottomFound: Boolean,
+): FeedRegion = FeedRegion(
     left = region.left,
-    top = maxOf(region.top, screen.top + (screen.height * MIN_TOP_CHROME_FRACTION).toInt()),
+    top = if (topFound) {
+        region.top
+    } else {
+        maxOf(region.top, screen.top + (screen.height * MIN_TOP_CHROME_FRACTION).toInt())
+    },
     right = region.right,
-    bottom = minOf(region.bottom, screen.bottom - (screen.height * MIN_BOTTOM_CHROME_FRACTION).toInt()),
+    bottom = if (bottomFound) {
+        region.bottom
+    } else {
+        minOf(region.bottom, screen.bottom - (screen.height * MIN_BOTTOM_CHROME_FRACTION).toInt())
+    },
 )

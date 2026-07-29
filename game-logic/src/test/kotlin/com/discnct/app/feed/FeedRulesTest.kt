@@ -10,20 +10,12 @@ private const val W = 1080
 private const val H = 2400
 private val SCREEN = FeedRegion(0, 0, W, H)
 
-/** The bands the cover is never allowed into, for the screen these tests use. */
+/** The bands the cover is held out of when no bar was recognised at that edge. */
 private const val TOP_SAFE = (H * MIN_TOP_CHROME_FRACTION).toInt()
 private const val BOTTOM_SAFE = H - (H * MIN_BOTTOM_CHROME_FRACTION).toInt()
 
 private fun node(id: String, top: Int, bottom: Int, left: Int = 0, right: Int = W) =
     FeedNode("com.instagram.android:id/$id", left, top, right, bottom)
-
-/** The highest pixel any part of the cover reaches, across both rectangles. */
-private fun FeedDetection.topmostCovered(): Int =
-    minOf(feedRegion.top, storiesRegion?.top ?: feedRegion.top)
-
-/** The lowest pixel any part of the cover reaches. */
-private fun FeedDetection.bottommostCovered(): Int =
-    maxOf(feedRegion.bottom, storiesRegion?.bottom ?: feedRegion.bottom)
 
 class FeedRulesTest {
 
@@ -36,8 +28,8 @@ class FeedRulesTest {
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
         assertEquals("Instagram", hit.platform)
-        // Starts under the stories strip, stops above the nav bar.
-        assertEquals(FeedRegion(0, 400, W, 2200), hit.feedRegion)
+        // One pane, from under the top bar down to the top of the nav bar.
+        assertEquals(FeedRegion(0, 160, W, 2200), hit.feedRegion)
     }
 
     @Test fun `the DM inbox is never covered`() {
@@ -81,7 +73,30 @@ class FeedRulesTest {
         assertEquals(2200, hit.feedRegion.bottom)
     }
 
-    @Test fun `the bottom band stays clear even when no nav bar is recognised`() {
+    @Test fun `the cover reaches the nav bar it found, not the safety band above it`() {
+        // The bug this pins down: the flat band is deeper than a real nav bar, so applying both
+        // stopped the cover short and left a live strip of feed scrolling below it.
+        val nodes = listOf(
+            node("action_bar", 0, 160),
+            node("recycler_view", 160, 2400),
+            node("row_feed_photo_imageview", 400, 1400),
+            node("tab_bar", 2250, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        assertEquals(2250, hit.feedRegion.bottom)
+        assertTrue(hit.feedRegion.bottom > BOTTOM_SAFE, "the band must not hold the cover back")
+    }
+
+    @Test fun `the bottom band stays clear when no nav bar is recognised at all`() {
+        val nodes = listOf(
+            node("recycler_view", 0, 2400),
+            node("row_feed_photo_imageview", 400, 1400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        assertEquals(BOTTOM_SAFE, hit.feedRegion.bottom)
+    }
+
+    @Test fun `a nav bar with an unfamiliar name is still found, by its shape`() {
         // The failure this guards against is the one that actually happened on a device: an id we
         // don't know means a bar we don't clip, and a covered nav bar makes the app unusable.
         val nodes = listOf(
@@ -90,8 +105,6 @@ class FeedRulesTest {
             node("some_unknown_bottom_bar_2026", 2200, 2400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertTrue(hit.bottommostCovered() <= BOTTOM_SAFE)
-        // Not just inside the guaranteed band — clipped to the bar itself, found by its shape.
         assertEquals(2200, hit.feedRegion.bottom)
     }
 
@@ -104,29 +117,7 @@ class FeedRulesTest {
             node("tab_bar", 2250, 2400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        // Had the row been taken for a bar, the cover would stop at 2150 and leave a live strip.
-        assertTrue(hit.feedRegion.bottom > 2150)
-    }
-
-    @Test fun `the shell is measured off the views that are really there`() {
-        val nodes = listOf(
-            node("action_bar", 0, 160),
-            node("recycler_view", 160, 2200),
-            FeedNode("", 20, 200, 210, 390),
-            FeedNode("", 240, 200, 430, 390),
-            FeedNode("", 460, 200, 650, 390),
-            FeedNode("", 680, 200, 870, 390),
-            node("row_feed_photo_imageview", 700, 1780),
-            node("tab_bar", 2200, 2400),
-        )
-        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        // Four rings on screen, the user's own left uncovered, so three get drawn over.
-        assertEquals(3, hit.storyShapes.count { it.form == ShapeForm.CIRCLE })
-        assertEquals((210 + 240) / 2, assertNotNull(hit.storiesRegion).left)
-        // And the empty photo lands on the real photo.
-        val block = assertNotNull(hit.feedShapes.firstOrNull { it.form == ShapeForm.BLOCK })
-        assertEquals(700, block.bounds.top)
-        assertEquals(1780, block.bounds.bottom)
+        assertEquals(2250, hit.feedRegion.bottom)
     }
 
     @Test fun `the top band stays clear even when no action bar is recognised`() {
@@ -136,17 +127,17 @@ class FeedRulesTest {
             node("row_feed_photo_imageview", 400, 1400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertTrue(hit.topmostCovered() >= TOP_SAFE)
+        assertEquals(TOP_SAFE, hit.feedRegion.top)
     }
 
-    @Test fun `the top bar is left uncovered`() {
+    @Test fun `the cover starts right under the top bar`() {
         val nodes = listOf(
             node("action_bar", 0, 160),
             node("recycler_view", 0, 2400),
             node("row_feed_photo_imageview", 400, 1400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertTrue(hit.topmostCovered() >= 160)
+        assertEquals(160, hit.feedRegion.top)
     }
 
     @Test fun `chrome that does not overlap the feed horizontally is ignored`() {
@@ -158,64 +149,35 @@ class FeedRulesTest {
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
         assertEquals(2200, hit.feedRegion.bottom)
-        assertEquals(TOP_SAFE, hit.topmostCovered())
+        assertEquals(TOP_SAFE, hit.feedRegion.top)
     }
 
-    @Test fun `the stories strip is covered but the users own story is not`() {
+    @Test fun `the stories strip is covered along with the feed`() {
+        // One pane now, not two: the strip is the same endless surface as the timeline under it,
+        // and a cover that started below it left the most scrollable part of the screen live.
         val nodes = listOf(
             node("action_bar", 0, 160),
+            node("reel_tray_recycler_view", 170, 480),
             node("recycler_view", 160, 2200),
             node("row_feed_photo_imageview", 500, 1600),
             node("tab_bar", 2200, 2400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        val stories = assertNotNull(hit.storiesRegion)
-        // A slot's worth of strip on the left is left alone — that's "add to your story".
-        assertTrue(stories.left > 0)
-        assertEquals(W, stories.right)
-        assertEquals(500, stories.bottom)
-        // And the feed picks up exactly where the strip ends, with no live gap between them.
-        assertEquals(stories.bottom, hit.feedRegion.top)
+        assertEquals(160, hit.feedRegion.top)
     }
 
-    @Test fun `a tall banner above the first post is not mistaken for the stories strip`() {
-        // If it were, the slot we keep live for "your story" would be a tall column of real feed
-        // showing through the cover.
+    @Test fun `a stories tray is never taken for a top bar`() {
+        // A short tray is wide and near the top, which is the shape of a bar. Clipping to it would
+        // start the cover below the stories and leave them scrolling in the clear.
         val nodes = listOf(
             node("action_bar", 0, 160),
             node("recycler_view", 160, 2200),
-            node("row_feed_photo_imageview", 1100, 1900),
+            node("story_tray_container", 170, 350),
+            node("row_feed_photo_imageview", 400, 1400),
             node("tab_bar", 2200, 2400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertNull(hit.storiesRegion)
-        assertEquals(TOP_SAFE, hit.feedRegion.top)
-    }
-
-    @Test fun `a named stories tray is used when the app gives us one`() {
-        val nodes = listOf(
-            node("action_bar", 0, 160),
-            node("recycler_view", 160, 2200),
-            node("reel_tray_recycler_view", 200, 520),
-            node("row_feed_photo_imageview", 560, 1600),
-            node("tab_bar", 2200, 2400),
-        )
-        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertEquals(520, assertNotNull(hit.storiesRegion).bottom)
-        assertEquals(520, hit.feedRegion.top)
-    }
-
-    @Test fun `a scrolled feed has no stories strip left to cover`() {
-        // Scroll down and the strip goes with it; the space it held is feed again, not a live gap.
-        val nodes = listOf(
-            node("action_bar", 0, 160),
-            node("recycler_view", 160, 2200),
-            node("row_feed_photo_imageview", 170, 1200),
-            node("tab_bar", 2200, 2400),
-        )
-        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertNull(hit.storiesRegion)
-        assertEquals(TOP_SAFE, hit.feedRegion.top)
+        assertEquals(160, hit.feedRegion.top)
     }
 
     @Test fun `a feed list inside a small sheet is not the main feed`() {
@@ -242,8 +204,8 @@ class FeedRulesTest {
             node("row_feed_photo_imageview", 400, 1400),
         )
         val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
-        assertTrue(hit.feedRegion.left >= 0 && hit.topmostCovered() >= 0)
-        assertTrue(hit.feedRegion.right <= W && hit.bottommostCovered() <= H)
+        assertTrue(hit.feedRegion.left >= 0 && hit.feedRegion.top >= 0)
+        assertTrue(hit.feedRegion.right <= W && hit.feedRegion.bottom <= H)
     }
 
     @Test fun `an app with no feed rules is never covered`() {
