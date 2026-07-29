@@ -1,11 +1,12 @@
 package com.discnct.app.service
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -13,7 +14,7 @@ import android.util.TypedValue
 import android.view.View
 
 /**
- * What the user sees where the feed was: frosted glass, and two words.
+ * What the user sees where the feed was: frosted glass, and a card telling them to get out.
  *
  * The version before this one drew a wireframe of Instagram — empty post cards, blank story rings —
  * measured off the real views underneath. It was a nice idea and it did not survive contact with a
@@ -68,20 +69,10 @@ class FeedOverlayView(context: Context) : View(context) {
 
     private val card = RectF()
     private val clip = Path()
-    private val bitmapBounds = Rect()
+    private val artwork = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-    /**
-     * The poster from the design, if someone has dropped one in.
-     *
-     * Looked up by name rather than by generated id so this compiles either way: with no
-     * `res/drawable/get_out.*` present the lookup returns 0 and the card is drawn instead. That
-     * keeps the art an asset decision rather than a code one.
-     */
-    private val poster by lazy {
-        val id = resources.getIdentifier("get_out", "drawable", context.packageName)
-        if (id == 0) null else runCatching { context.getDrawable(id) }.getOrNull()
-    }
-
+    private var cachedPoster: Bitmap? = null
+    private var posterMissing = false
     private var glowShaderSide = 0f
 
     override fun onDraw(canvas: Canvas) {
@@ -89,20 +80,14 @@ class FeedOverlayView(context: Context) : View(context) {
         if (!layOutCard()) return
 
         val radius = card.width() * CARD_CORNER_FRACTION
-        val art = poster
+        val art = poster(card.width().toInt())
         if (art != null) {
             canvas.save()
             clip.reset()
             clip.addRoundRect(card, radius, radius, Path.Direction.CW)
             canvas.clipPath(clip)
-            bitmapBounds.set(
-                card.left.toInt(),
-                card.top.toInt(),
-                card.right.toInt(),
-                card.bottom.toInt(),
-            )
-            art.bounds = bitmapBounds
-            art.draw(canvas)
+            // Square source into a square card, so the scale is uniform and nothing distorts.
+            canvas.drawBitmap(art, null, card, artwork)
             canvas.restore()
         } else {
             canvas.drawRoundRect(card, radius, radius, glass)
@@ -110,6 +95,48 @@ class FeedOverlayView(context: Context) : View(context) {
             drawHeadline(canvas)
         }
         canvas.drawRoundRect(card, radius, radius, edge)
+    }
+
+    /**
+     * The poster, decoded no larger than the card that will hold it.
+     *
+     * Two things make this worth more than a plain `getDrawable`. The art is 1254px square and the
+     * card is 500; decoded whole that is six megabytes of bitmap held for the lifetime of an
+     * accessibility service, to draw something a fifth of the size. And it's looked up by name
+     * rather than by generated id, so the code compiles and runs whether or not the asset is
+     * there — with nothing to find, [drawHeadline] draws the words instead.
+     */
+    private fun poster(side: Int): Bitmap? {
+        cachedPoster?.let { return it }
+        if (posterMissing || side <= 0) return null
+        val id = resources.getIdentifier(POSTER_NAME, "drawable", context.packageName)
+        if (id == 0) {
+            posterMissing = true
+            return null
+        }
+        val measured = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeResource(resources, id, measured)
+        val decoded = runCatching {
+            BitmapFactory.decodeResource(
+                resources,
+                id,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSizeFor(measured.outWidth, side)
+                    inScaled = false
+                },
+            )
+        }.getOrNull()
+        if (decoded == null) posterMissing = true
+        cachedPoster = decoded
+        return decoded
+    }
+
+    /** The largest power-of-two downscale that still leaves the bitmap wider than [target]. */
+    private fun sampleSizeFor(source: Int, target: Int): Int {
+        if (source <= 0 || target <= 0) return 1
+        var sample = 1
+        while (source / (sample * 2) >= target) sample *= 2
+        return sample
     }
 
     /**
@@ -164,6 +191,9 @@ class FeedOverlayView(context: Context) : View(context) {
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
 
     private companion object {
+        /** `res/drawable-nodpi/get_out.webp`. Absent, the card falls back to drawing the words. */
+        const val POSTER_NAME = "get_out"
+
         const val LINE_ONE = "GET"
         const val LINE_TWO = "OUT"
 
