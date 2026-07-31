@@ -15,19 +15,27 @@ package com.discnct.app.support
  */
 
 /**
- * The payee. **Placeholder** — replace with a real UPI ID before shipping, or every payment fails
- * at the payment app with "invalid VPA".
+ * The payee.
+ *
+ * `internal`, and deliberately so: `app` is a separate Gradle module, so nothing in the UI can
+ * import this even by accident. The only way it leaves this file is inside the URI handed to a
+ * payment app at the moment someone taps Pay — it is never drawn on a screen, never put on the
+ * clipboard, and never shown as "pay me at …" text.
+ *
+ * That is a guard against it being displayed, not a secret. It ships inside the APK and anyone who
+ * unpacks one can read it — which is fine, because a UPI ID is an address for *receiving* money.
+ * Knowing it lets someone pay, nothing else.
  */
-const val UPI_ID = "yourname@upi"
+internal const val UPI_ID = "harsh.bhor007@okhdfcbank"
 
-/** Shown by the payment app as who is being paid. */
-const val UPI_PAYEE_NAME = "Discnct"
+/** Shown by the payment app as who is being paid. Internal for the same reason as [UPI_ID]. */
+internal const val UPI_PAYEE_NAME = "Discnct"
 
 /** The note on the transaction, visible in the payer's own statement. */
-const val UPI_NOTE = "Discnct Support"
+internal const val UPI_NOTE = "Discnct Support"
 
 /** UPI is a domestic Indian rail; INR is the only currency it settles in. */
-const val UPI_CURRENCY = "INR"
+internal const val UPI_CURRENCY = "INR"
 
 /**
  * Rupees as UPI wants them: always two decimal places.

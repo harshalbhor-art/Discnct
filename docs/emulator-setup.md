@@ -114,11 +114,13 @@ Things to actually exercise manually (this is UI/behavioral verification the
 - Level 3 (Total Disconnect): restricted-launcher mode shows only the allowed
   apps, and blocked ones still route through the block screen.
 - Buy us a Coffee: tapping Pay opens the system chooser with the installed UPI
-  apps in it, the picked app shows the right rupee amount, and coming back —
-  paid or cancelled — shows "Thank you". On an emulator with no UPI app
-  installed it should say "No UPI app found" and open nothing. Note the payee
-  is still the `yourname@upi` placeholder until it's replaced, so any payment
-  attempt will fail at the UPI app itself.
+  apps in it, the picked app shows the right rupee amount and the right payee,
+  and coming back — paid or cancelled — shows "Thank you". On an emulator with
+  no UPI app installed it should say "No UPI app found" and open nothing. The
+  payee ID must appear only inside the payment app, never anywhere on a Discnct
+  screen; it's `internal` to `game-logic` so the UI module cannot reach it, but
+  worth an eye on the card itself. Send ₹1 to a real device once to confirm the
+  VPA resolves — a wrong one is only rejected at the final step.
 - Financial exemption: with a banking or payments app exempt in Settings >
   Financial Apps, opening it takes any feed cover straight down and stops the
   reel bounce and the block screen; leaving it puts all three back on the very

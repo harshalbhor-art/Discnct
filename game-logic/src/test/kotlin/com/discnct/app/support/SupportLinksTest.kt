@@ -2,6 +2,7 @@ package com.discnct.app.support
 
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -9,7 +10,7 @@ class SupportLinksTest {
 
     @Test fun `the uri matches the shape a payment app expects`() {
         assertEquals(
-            "upi://pay?pa=yourname@upi&pn=Discnct&am=99.00&cu=INR&tn=Discnct%20Support",
+            "upi://pay?pa=harsh.bhor007@okhdfcbank&pn=Discnct&am=99.00&cu=INR&tn=Discnct%20Support",
             upiPaymentUri(99),
         )
     }
@@ -67,9 +68,20 @@ class SupportLinksTest {
         assertTrue(upiPaymentUri(99).contains("&cu=INR&"))
     }
 
-    @Test fun `the placeholder upi id is still a placeholder`() {
-        // A reminder in test form: this fails the day a real ID is set, which is the moment to also
-        // check the payee name reads the way it should on someone's bank statement.
-        assertEquals("yourname@upi", UPI_ID, "replace the placeholder, then update this test")
+    @Test fun `the payee is a real vpa rather than a placeholder`() {
+        // A wrong payee here does not fail loudly — the payment app opens, accepts the amount, and
+        // rejects the VPA at the last step, which reads to the user as the app being broken.
+        assertTrue(UPI_ID.matches(Regex("[A-Za-z0-9.\\-_]{3,}@[A-Za-z][A-Za-z0-9.\\-]{2,}")), UPI_ID)
+        assertFalse(UPI_ID.startsWith("yourname"), "the placeholder is still in place")
+    }
+
+    @Test fun `the payee id survives untouched, dots and all`() {
+        // The dot in a VPA is legal and must not be percent-encoded; a bank rejects harsh%2Ebhor007.
+        assertTrue(upiPaymentUri(99).contains("?pa=$UPI_ID&"), upiPaymentUri(99))
+    }
+
+    @Test fun `the payee appears once, and only as the payee`() {
+        // The ID is never meant to reach a screen or a note — the pa= parameter is its only exit.
+        assertEquals(1, upiPaymentUri(99).windowed(UPI_ID.length).count { it == UPI_ID })
     }
 }
