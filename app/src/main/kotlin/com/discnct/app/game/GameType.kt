@@ -18,6 +18,7 @@ enum class GameType(
     TIC_TAC_TOE("Tic-Tac-Toe"),
     MINESWEEPER("Minesweeper"),
     WORDLE("Wordle"),
+    WORD_SEARCH("Word Search"),
     GAME_2048("2048"),
     BREATHING("Breathing", timeLimitSeconds = 64),
     FIDGET_SPINNER("Fidget Spinner", timeLimitSeconds = 45),

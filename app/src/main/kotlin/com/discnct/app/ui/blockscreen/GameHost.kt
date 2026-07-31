@@ -24,6 +24,7 @@ import com.discnct.app.game.GameOutcome
 import com.discnct.app.game.GameType
 import com.discnct.app.game.MinesweeperGame
 import com.discnct.app.game.TicTacToeGame
+import com.discnct.app.game.WordSearchGame
 import com.discnct.app.game.WordleGame
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
@@ -63,6 +64,7 @@ fun GameHost(gameType: GameType, onFinished: (GameOutcome) -> Unit) {
                 GameType.TIC_TAC_TOE -> TicTacToeGame(onFinished)
                 GameType.MINESWEEPER -> MinesweeperGame(onFinished)
                 GameType.WORDLE -> WordleGame(onFinished)
+                GameType.WORD_SEARCH -> WordSearchGame(onFinished)
                 GameType.GAME_2048 -> Game2048(onFinished)
                 GameType.BREATHING -> BreathingExercise(onFinished)
                 GameType.FIDGET_SPINNER -> FidgetSpinnerGame(onFinished)
