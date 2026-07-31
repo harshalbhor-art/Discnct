@@ -39,6 +39,26 @@ def encode(value: str) -> str:
     return quote(value, safe="-._~@")
 
 
+def horizontal_runs(matrix: list[list[bool]]):
+    """Emit one subpath per run of adjacent dark modules, rather than one per module.
+
+    The geometry is identical either way; a run of eight modules is just one rectangle
+    instead of eight. It roughly halves the file, which is worth having on a page that
+    ships five of these.
+    """
+    for y, row in enumerate(matrix):
+        x = 0
+        while x < len(row):
+            if not row[x]:
+                x += 1
+                continue
+            run = 1
+            while x + run < len(row) and row[x + run]:
+                run += 1
+            yield f"M{x} {y}h{run}v1h-{run}z"
+            x += run
+
+
 def payment_uri(rupees: int | None) -> str:
     uri = f"upi://pay?pa={encode(UPI_ID)}&pn={encode(PAYEE_NAME)}"
     if rupees is not None:
@@ -56,12 +76,7 @@ def main() -> None:
 
         matrix = code.get_matrix()
         size = len(matrix)
-        path = "".join(
-            f"M{x} {y}h1v1h-1z"
-            for y, row in enumerate(matrix)
-            for x, dark in enumerate(row)
-            if dark
-        )
+        path = "".join(horizontal_runs(matrix))
         # Always black on white, whatever the page theme is doing — a scanner needs the
         # contrast the spec assumes, and an inverted QR fails on a fair number of phones.
         svg = (
