@@ -84,6 +84,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var themeMode: ThemeMode = ThemeMode.SYSTEM
 
+    /** Apps Discnct stands down for entirely while they are in front. See [FinanceAppStore]. */
+    @Volatile
+    private var financeExemptPackages: Set<String> = emptySet()
+
     /** Rate-limiting state for the Level 1 Back bounce. See [nextBounce]. */
     @Volatile
     private var bounceState: BounceState = BounceState()
@@ -112,6 +116,14 @@ class DiscnctAccessibilityService : AccessibilityService() {
             ThemeStore(applicationContext).themeMode.collect { themeMode = it }
         }
         serviceScope.launch {
+            FinanceAppStore(applicationContext).exemptPackages.collect {
+                financeExemptPackages = it
+                // Un-exempting an app the user is looking at right now has to bite immediately;
+                // exempting one has to lift the cover for the same reason.
+                hideOverlaySoon()
+            }
+        }
+        serviceScope.launch {
             PauseStore(applicationContext).pausedUntilMillis.collect {
                 pausedUntilMillis = it
                 hideOverlaySoon()
@@ -124,6 +136,15 @@ class DiscnctAccessibilityService : AccessibilityService() {
         val foregroundPackage = event.packageName?.toString() ?: return
         if (foregroundPackage == packageName) return
 
+        // Banking, payments and the authenticators in front of them: Discnct gets out of the way
+        // completely, and only for as long as one of them is what the user is looking at. There is
+        // no timer and nothing persisted, so the exemption cannot outlive the app that earned it —
+        // the next event from anything else puts every block straight back.
+        if (foregroundPackage in financeExemptPackages) {
+            standDownFor(foregroundPackage)
+            return
+        }
+
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 maybeBlockWholeApp(foregroundPackage)
@@ -134,6 +155,20 @@ class DiscnctAccessibilityService : AccessibilityService() {
                 guardLevelOneSurfaces(foregroundPackage)
             }
         }
+    }
+
+    /**
+     * Suspend everything while a financial app is in front.
+     *
+     * The per-app guard state is reset the same way a real app switch resets it, so coming back to
+     * Instagram from the banking app doesn't find a half-used throttle window or a stale bounce
+     * backoff — arriving from an exempt app must be indistinguishable from arriving from any other.
+     */
+    private fun standDownFor(foregroundPackage: String) {
+        lastForegroundPackage = foregroundPackage
+        lastScanAtMs = 0L
+        bounceState = BounceState()
+        hideOverlay()
     }
 
     private fun maybeBlockWholeApp(foregroundPackage: String) {

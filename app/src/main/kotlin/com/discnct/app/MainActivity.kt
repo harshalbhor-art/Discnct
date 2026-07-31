@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.discnct.app.ui.applist.AllowedAppsScreen
 import com.discnct.app.ui.applist.AppBlockerScreen
+import com.discnct.app.ui.applist.FinancialAppsScreen
 import com.discnct.app.ui.applist.ReelBlockerScreen
 import com.discnct.app.ui.applist.TotalDisconnectScreen
 import com.discnct.app.ui.home.BottomNav
@@ -49,6 +50,7 @@ class MainActivity : ComponentActivity() {
         data object AppBlocker : Screen
         data object TotalDisconnect : Screen
         data object AllowedApps : Screen
+        data object FinancialApps : Screen
         data object Permissions : Screen
     }
 
@@ -76,7 +78,11 @@ class MainActivity : ComponentActivity() {
                 // Allowed Apps is the one screen reached from another section rather than from
                 // Home, so back has to put you where you came from.
                 BackHandler(enabled = screen != Screen.Home) {
-                    screen = if (screen == Screen.AllowedApps) Screen.TotalDisconnect else Screen.Home
+                    screen = when (screen) {
+                        Screen.AllowedApps -> Screen.TotalDisconnect
+                        Screen.FinancialApps -> Screen.Settings
+                        else -> Screen.Home
+                    }
                 }
 
                 // Home, Stats and Settings are the top-level tabs and share the bottom nav bar;
@@ -102,7 +108,9 @@ class MainActivity : ComponentActivity() {
                                     },
                                 )
                                 Screen.Stats -> StatsScreen()
-                                else -> SettingsScreen()
+                                else -> SettingsScreen(
+                                    onOpenFinancialApps = { screen = Screen.FinancialApps },
+                                )
                             }
                         }
                         BottomNav(
@@ -129,6 +137,7 @@ class MainActivity : ComponentActivity() {
                             onOpenAllowedApps = { screen = Screen.AllowedApps },
                         )
                         Screen.AllowedApps -> AllowedAppsScreen(onBack = { screen = Screen.TotalDisconnect })
+                        Screen.FinancialApps -> FinancialAppsScreen(onBack = { screen = Screen.Settings })
                         Screen.Permissions -> OnboardingScreen(onComplete = { screen = Screen.Home })
                         else -> Unit
                     }

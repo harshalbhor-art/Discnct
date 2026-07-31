@@ -72,7 +72,7 @@ private sealed interface PendingPinAction {
  * purpose: nothing about payment/subscription, since Discnct doesn't have a paid tier.
  */
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier) {
+fun SettingsScreen(onOpenFinancialApps: () -> Unit = {}, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val colors = LocalDiscnctColors.current
     val scope = rememberCoroutineScope()
@@ -195,6 +195,23 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                             .padding(vertical = 4.dp),
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            SettingsCard(title = "Financial Apps") {
+                Text(
+                    text = "Discnct switches itself off while a banking, payments or authenticator " +
+                        "app is open, and back on the moment you leave it. Check yours is listed — " +
+                        "package names can't be guessed, so the built-in list won't cover every bank.",
+                    style = DiscnctType.bodySmall,
+                    color = colors.textSecondary,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                PillButton(
+                    label = "Manage List",
+                    onClick = onOpenFinancialApps,
+                    variant = ButtonVariant.Secondary,
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
