@@ -6,10 +6,9 @@
 <title>Discnct — escalating resistance between you and the scroll</title>
 <meta name="description" content="Discnct is a free, native Android app that fights reel and social-media addiction in three escalating levels: bounce out of Reels, block whole apps behind a game, or replace your home screen entirely." />
 
-<!-- Config: the APK link, and the UPI payee the support section pays. -->
+<!-- Config: the APK link. The UPI payee deliberately isn't here — the support button hands
+     off to pay.html, which is the only page that carries the payee at all. -->
 <meta name="discnct-apk-url" content="https://github.com/harshalbhor-art/Discnct/releases/download/debug/discnct-debug-v0.1.0.apk" />
-<meta name="discnct-upi-id" content="harsh.bhor007@okhdfcbank" />
-<meta name="discnct-upi-name" content="Discnct" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -669,17 +668,11 @@ footer a:hover{color:var(--text-primary);}
           <button class="amt" type="button" data-amt="499" aria-pressed="false">₹499</button>
         </div>
 
-        <a class="btn btn-primary btn-lg" id="upi-btn" href="#">Pay ₹99 by UPI</a>
-
-        <div class="vpa">
-          <code id="upi-vpa">—</code>
-          <button type="button" id="copy-vpa">COPY</button>
-        </div>
+        <a class="btn btn-primary btn-lg" id="upi-btn" href="pay.html?amt=99">Pay ₹99 by UPI</a>
 
         <p class="fineprint">
-          The button opens a UPI app and only works on a phone. On a laptop, copy the ID above
-          into GPay, PhonePe or your bank app. Nothing is unlocked by paying — Discnct behaves
-          exactly the same either way.
+          Opens a page with a QR your UPI app can scan — from a phone or a laptop. Nothing is
+          unlocked by paying: Discnct behaves exactly the same either way.
         </p>
       </div>
     </div>
@@ -694,46 +687,25 @@ footer a:hover{color:var(--text-primary);}
 </footer>
 
 <script>
-  // Config lives in the <meta> tags above so there's exactly one place to change it.
+  // Config lives in the <meta> tag above so there's exactly one place to change it.
   const apkUrl = document.querySelector('meta[name="discnct-apk-url"]').content;
-  const upiId = document.querySelector('meta[name="discnct-upi-id"]').content;
-  const upiName = document.querySelector('meta[name="discnct-upi-name"]').content;
   for (const id of ['nav-download', 'hero-download', 'download-card-btn']) {
     document.getElementById(id).href = apkUrl;
   }
 
-  // Same URI shape the Android app builds in SupportLinks.kt — two decimal places on the
-  // amount, and %20 rather than + in the note, because some UPI apps reject both.
-  function upiUri(rupees) {
-    const q = s => encodeURIComponent(s).replace(/%40/g, '@');
-    return 'upi://pay?pa=' + q(upiId) + '&pn=' + q(upiName) +
-           '&am=' + rupees + '.00&cu=INR&tn=' + q('Discnct Support');
-  }
-
+  // Picking an amount here only chooses which pay.html to open. No payee, no upi:// URI and
+  // no QR on this page — all of that lives one click away, so the landing page never carries
+  // the ID at all.
   const payBtn = document.getElementById('upi-btn');
-  function selectAmount(rupees) {
-    for (const b of document.querySelectorAll('.amt')) {
-      b.setAttribute('aria-pressed', String(b.dataset.amt === String(rupees)));
-    }
-    payBtn.textContent = 'Pay ₹' + rupees + ' by UPI';
-    payBtn.href = upiUri(rupees);
-  }
   for (const b of document.querySelectorAll('.amt')) {
-    b.addEventListener('click', () => selectAmount(Number(b.dataset.amt)));
+    b.addEventListener('click', () => {
+      for (const o of document.querySelectorAll('.amt')) {
+        o.setAttribute('aria-pressed', String(o === b));
+      }
+      payBtn.textContent = 'Pay ₹' + b.dataset.amt + ' by UPI';
+      payBtn.href = 'pay.html?amt=' + b.dataset.amt;
+    });
   }
-  selectAmount(99);
-
-  document.getElementById('upi-vpa').textContent = upiId;
-  document.getElementById('copy-vpa').addEventListener('click', async (e) => {
-    try {
-      await navigator.clipboard.writeText(upiId);
-      e.target.textContent = 'COPIED';
-      setTimeout(() => { e.target.textContent = 'COPY'; }, 1600);
-    } catch {
-      // Clipboard is blocked outside a secure context; selecting the text still works.
-      e.target.textContent = 'SELECT IT';
-    }
-  });
 
   const root = document.documentElement;
   document.getElementById('theme-toggle').addEventListener('click', () => {
