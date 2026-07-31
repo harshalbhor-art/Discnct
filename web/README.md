@@ -4,15 +4,24 @@ Two independent, statically-deployable pieces, neither part of the Android Gradl
 build:
 
 - **`landing/`** — the marketing site. A single static `index.html`, no build step.
-  Explains the app, walks through the three levels, and links out to the APK
-  download and the coffee checkout.
-- **`coffee/`** — the "Buy us a Coffee" payment flow. A small Next.js app with one
-  page and one API route that creates a [Stripe Checkout](https://stripe.com/docs/payments/checkout)
-  session server-side. Card details are entered on Stripe's own hosted page — this
-  app never sees or stores them.
+  Explains the app, walks through the three levels and the stats screens, links out
+  to the APK download, and takes support payments by UPI.
+- **`coffee/`** — an unused Stripe Checkout flow. **The landing page no longer points
+  at it.** Support payments now go by UPI, handled entirely in `landing/index.html`
+  with no server involved, matching what the Android app does. This directory is kept
+  in case card payments are wanted later — nothing links to it, and it doesn't need
+  deploying.
 
-Both are meant to be deployed as **separate Vercel projects**, each pointed at its
-own subdirectory.
+Only `landing/` needs a Vercel project now.
+
+## Screens on the landing page
+
+The phone screens in `landing/index.html` are **rebuilt in HTML and CSS from the real
+app**, not photographs of it. That keeps them sharp at any size, lets them follow the
+page's own light/dark toggle, and costs nothing to download. It also means they can
+drift: when a screen changes in the app, the markup here has to be updated by hand.
+If you'd rather ship real PNG screenshots, drop them in `landing/screenshots/` and
+swap each `.phone` block for an `<img>`.
 
 ## Deploying `landing/`
 
@@ -22,12 +31,13 @@ own subdirectory.
    override needed).
 4. Deploy. That's it — no environment variables.
 
-Before or after deploying, edit the two `<meta>` tags at the top of
+Before or after deploying, edit the `<meta>` tags at the top of
 `web/landing/index.html`:
 
 ```html
 <meta name="discnct-apk-url" content="..." />
-<meta name="discnct-coffee-url" content="..." />
+<meta name="discnct-upi-id" content="harsh.bhor007@okhdfcbank" />
+<meta name="discnct-upi-name" content="Discnct" />
 ```
 
 - `discnct-apk-url` should point at a GitHub Release asset, e.g.
@@ -37,10 +47,15 @@ Before or after deploying, edit the two `<meta>` tags at the top of
   workflow currently only uploads a CI artifact, which requires a GitHub login to
   download — not suitable for a public download button. Publishing a proper Release
   with the APK attached is a separate, small follow-up.
-- `discnct-coffee-url` should be the `coffee/` project's real Vercel URL (or custom
-  domain) once deployed.
+- `discnct-upi-id` is the payee VPA. Unlike in the Android app — where the ID is
+  `internal` to `game-logic` precisely so no screen can render it — the landing page
+  **shows it deliberately**. A `upi://` link only works on a phone, so a laptop
+  visitor needs the ID itself to type or paste into their bank app. It is an address
+  for receiving money, so publishing it is what it's for.
+- `discnct-upi-name` is the name shown by the payment app. Note that some UPI apps
+  override it with whatever name the VPA is registered under.
 
-## Deploying `coffee/`
+## Deploying `coffee/` (optional, currently unused)
 
 1. New Vercel project → import this repo.
 2. Set **Root Directory** to `web/coffee`.
@@ -53,10 +68,9 @@ Before or after deploying, edit the two `<meta>` tags at the top of
    | `NEXT_PUBLIC_LANDING_URL` | e.g. `https://discnct.vercel.app` | Optional. Where the "back to Discnct" link on the success/cancel pages points. Defaults to the GitHub repo if unset. |
 
 5. Deploy.
-6. Update `discnct-coffee-url` in `web/landing/index.html` (see above) to this
-   project's URL, and update `COFFEE_CHECKOUT_URL` in
-   `app/src/main/kotlin/com/discnct/app/ui/home/SupportCard.kt` to match, then
-   rebuild the app.
+6. Point something at it. Nothing does today: the landing page pays by UPI, and
+   `SupportCard.kt` in the Android app fires a `upi://` intent rather than opening a
+   web checkout.
 
 ### Testing a payment end-to-end
 
@@ -78,8 +92,14 @@ npm run dev
 - No webhook / payment-confirmation record-keeping. Stripe's own dashboard is the
   ledger; this is a checkout flow, not an accounting system. Worth adding later if
   you want an automated "thank you" email or a running total.
-- No custom domain wiring (`discnct.app` or similar) — both `<meta>`/`SupportCard.kt`
-  URLs above assume you'll either use the Vercel-provided `*.vercel.app` domains or
-  attach your own domain in the Vercel dashboard and update those two spots to match.
+- No custom domain wiring (`discnct.app` or similar) — the APK `<meta>` above assumes
+  you'll either use the Vercel-provided `*.vercel.app` domain or attach your own in
+  the Vercel dashboard.
+- **No payment verification anywhere, by design.** Neither the landing page nor the
+  app can tell whether a UPI payment completed; there is no server to ask. Nothing is
+  unlocked by paying, so nothing needs to know.
+- No UPI QR code. A QR would help laptop visitors more than the copyable ID does, but
+  generating one needs a library this environment can't install, and an unscannable
+  QR is worse than none. Drop a `landing/upi-qr.svg` in and it's a small addition.
 - `web-prototype/` is unrelated to both of these — it's a standalone UI/logic demo
   of the Android app itself, not part of the web presence.
