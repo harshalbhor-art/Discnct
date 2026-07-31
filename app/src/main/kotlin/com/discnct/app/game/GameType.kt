@@ -7,8 +7,9 @@ data class GameOutcome(val earnedMinutes: Int, val resultLabel: String)
  * The mini-games the block screen can offer.
  *
  * Puzzles are unbounded — play as many as you like, as often as you like; the friction is having
- * to finish one at all, not rationing them. The two idle games have no win condition to reach, so
- * they end on a clock instead ([timeLimitSeconds]).
+ * to finish one at all, not rationing them. The games with no win condition to reach end on a
+ * clock instead ([timeLimitSeconds]): the two idle ones, and the runner, which would otherwise go
+ * on for as long as somebody kept clearing cacti.
  */
 enum class GameType(
     val displayName: String,
@@ -19,6 +20,7 @@ enum class GameType(
     MINESWEEPER("Minesweeper"),
     WORDLE("Wordle"),
     WORD_SEARCH("Word Search"),
+    DINO_RUN("Dino Run", timeLimitSeconds = 60),
     GAME_2048("2048"),
     BREATHING("Breathing", timeLimitSeconds = 64),
     FIDGET_SPINNER("Fidget Spinner", timeLimitSeconds = 45),
