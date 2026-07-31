@@ -25,6 +25,19 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!--
+      Lets the support card ask whether any UPI app is installed before offering to open one.
+      QUERY_ALL_PACKAGES above already grants this today, but that permission needs a Play Console
+      declaration and may not survive review — without this block, losing it would make every phone
+      report "No UPI app found" regardless of what's installed.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+    </queries>
+
     <application
         android:name=".DiscnctApp"
         android:allowBackup="false"
