@@ -4,7 +4,7 @@ package com.discnct.app.feed
  * Pure, Android-free rules for finding the *scrolling feed* inside a social app.
  *
  * This is the second half of Level 1. The reel blocker bounces you out of a full-screen short-form
- * viewer; the feed cover leaves you exactly where you are and lays frosted glass over the
+ * viewer; the feed cover leaves you exactly where you are and lays a solid pane over the
  * endless-scroll surface, so DMs, search, posting and profiles keep working while the trap doesn't.
  *
  * Detection is a harder problem here than it is for reels, and it's worth being explicit about why.
@@ -132,7 +132,7 @@ const val MIN_FEED_REGION_COVERAGE = 0.20f
  *
  * These are a fallback, not an extra constraint, and the distinction is what fixes a live strip of
  * feed showing under the cover: a nav bar measures about 150px on a 1080×2400 screen, this band is
- * 192px, and applying both left 42px of real timeline scrolling away below the glass. When a bar is
+ * 192px, and applying both left 42px of real timeline scrolling away below the cover. When a bar is
  * recognised — by id or by shape — its own edge is exact and the band has nothing to add. The band
  * only speaks up when nothing was recognised at all, which is the case it was written for: an id we
  * don't know is a bar we don't clip, and a covered bottom navigation makes the app unusable.
@@ -151,6 +151,21 @@ const val MIN_BOTTOM_CHROME_FRACTION = 0.08f
 const val BAR_MIN_WIDTH_FRACTION = 0.8f
 const val BAR_MAX_HEIGHT_FRACTION = 0.10f
 const val BAR_EDGE_ZONE_FRACTION = 0.15f
+
+/**
+ * How far the cover may *stretch* to meet a bar it has found.
+ *
+ * A recognised bar is the truth about where the feed ends, and the scrolling container often stops
+ * short of it — Instagram's timeline ends above the bottom navigation rather than running under it,
+ * which left a live strip of feed showing between the cover and the nav bar. So a found bar sets
+ * the edge outright instead of merely trimming it.
+ *
+ * The cap is what keeps that from becoming a licence to cover the screen. Without it a small list
+ * inside a bottom sheet, on a screen that happens to have both bars, would be stretched from one to
+ * the other. A real gap is tens of pixels; anything beyond this is a different surface, not a short
+ * feed, and the region stays where it was.
+ */
+const val MAX_CHROME_GAP_FRACTION = 0.15f
 
 /**
  * What we decided to cover: one rectangle, from under the top bar to above the bottom navigation.
@@ -207,11 +222,13 @@ fun detectFeedSurface(
 
     val byName = clipToChrome(base.intersect(screen), nodes, platform, screen)
     val byShape = clipToBars(byName.region, nodes, platform, screen)
-    val region = reserveChrome(
+    val region = fitBetweenChrome(
         region = byShape.region,
         screen = screen,
-        topFound = byName.topFound || byShape.topFound,
-        bottomFound = byName.bottomFound || byShape.bottomFound,
+        // The lowest top bar and the highest bottom bar: whichever way a bar was recognised, the
+        // innermost one is the edge of what the user can still reach.
+        topEdge = listOfNotNull(byName.topEdge, byShape.topEdge).maxOrNull(),
+        bottomEdge = listOfNotNull(byName.bottomEdge, byShape.bottomEdge).minOrNull(),
     )
     if (region.isEmpty) return null
     if (region.area.toFloat() / screen.area < MIN_FEED_REGION_COVERAGE) return null
@@ -224,15 +241,20 @@ fun detectFeedSurface(
 }
 
 /**
- * A clipped region, plus whether we actually recognised a bar at each edge.
+ * A clipped region, plus where a bar was recognised at each edge.
  *
- * The flags are what let [reserveChrome] stay out of the way. An edge pinned to a bar we found is
- * exact; an edge nobody claimed is a guess, and a guess is what the safety band is for.
+ * Carrying the edge rather than a found/not-found flag is what lets [fitBetweenChrome] close the
+ * gap under the cover. A bar we found is an exact statement about where the feed ends, in both
+ * directions — the region is moved to it, not merely trimmed by it. A null edge is no statement at
+ * all, and that is the case the safety band exists for.
+ *
+ * @param topEdge the bottom of the lowest bar recognised in the screen's top edge zone.
+ * @param bottomEdge the top of the highest bar recognised in the screen's bottom edge zone.
  */
 private data class Clip(
     val region: FeedRegion,
-    val topFound: Boolean,
-    val bottomFound: Boolean,
+    val topEdge: Int?,
+    val bottomEdge: Int?,
 )
 
 /**
@@ -254,31 +276,23 @@ private fun clipToBars(
     platform: FeedPlatform,
     screen: FeedRegion,
 ): Clip {
-    if (region.isEmpty || screen.height <= 0) return Clip(region, false, false)
+    if (region.isEmpty || screen.height <= 0) return Clip(region, null, null)
     val minWidth = screen.width * BAR_MIN_WIDTH_FRACTION
     val maxHeight = screen.height * BAR_MAX_HEIGHT_FRACTION
     val topZone = screen.top + screen.height * BAR_EDGE_ZONE_FRACTION
     val bottomZone = screen.bottom - screen.height * BAR_EDGE_ZONE_FRACTION
 
-    var top = region.top
-    var bottom = region.bottom
-    var topFound = false
-    var bottomFound = false
+    var topEdge: Int? = null
+    var bottomEdge: Int? = null
     for (node in nodes) {
         if (node.height <= 0 || node.width < minWidth || node.height > maxHeight) continue
         if (platform.itemMarkers.any { node.viewId.contains(it) }) continue
         if (platform.storyTrayMarkers.any { node.viewId.contains(it) }) continue
         val centre = (node.top + node.bottom) / 2f
-        if (centre <= topZone) {
-            top = maxOf(top, node.bottom)
-            topFound = true
-        }
-        if (centre >= bottomZone) {
-            bottom = minOf(bottom, node.top)
-            bottomFound = true
-        }
+        if (centre <= topZone) topEdge = maxOf(topEdge ?: node.bottom, node.bottom)
+        if (centre >= bottomZone) bottomEdge = minOf(bottomEdge ?: node.top, node.top)
     }
-    return Clip(FeedRegion(region.left, top, region.right, bottom), topFound, bottomFound)
+    return Clip(region, topEdge, bottomEdge)
 }
 
 private fun unionOf(nodes: List<FeedNode>): FeedRegion = FeedRegion(
@@ -312,11 +326,11 @@ private fun clipToChrome(
     platform: FeedPlatform,
     screen: FeedRegion,
 ): Clip {
-    if (region.isEmpty) return Clip(region, false, false)
+    if (region.isEmpty) return Clip(region, null, null)
     var top = region.top
     var bottom = region.bottom
-    var topFound = false
-    var bottomFound = false
+    var topEdge: Int? = null
+    var bottomEdge: Int? = null
     val middle = (region.top + region.bottom) / 2
     val topZone = screen.top + screen.height * BAR_EDGE_ZONE_FRACTION
     val bottomZone = screen.bottom - screen.height * BAR_EDGE_ZONE_FRACTION
@@ -326,33 +340,46 @@ private fun clipToChrome(
         if (node.height <= 0 || node.right <= region.left || node.left >= region.right) continue
         if (node.bottom <= middle) {
             top = maxOf(top, node.bottom)
-            if (node.bottom <= topZone) topFound = true
+            if (node.bottom <= topZone) topEdge = maxOf(topEdge ?: node.bottom, node.bottom)
         } else if (node.top >= middle) {
             bottom = minOf(bottom, node.top)
-            if (node.top >= bottomZone) bottomFound = true
+            if (node.top >= bottomZone) bottomEdge = minOf(bottomEdge ?: node.top, node.top)
         }
     }
 
-    return Clip(FeedRegion(region.left, top, region.right, bottom), topFound, bottomFound)
+    return Clip(FeedRegion(region.left, top, region.right, bottom), topEdge, bottomEdge)
 }
 
-/** Apply the safety bands, but only at an edge where no bar was recognised. See the constants. */
-private fun reserveChrome(
+/**
+ * Settle each edge of the cover: against the bar we found there, or against the safety band when we
+ * found nothing.
+ *
+ * A found bar wins in *both* directions. Trimming alone was the bug behind the strip of live feed
+ * left showing above the bottom navigation: the timeline's own container ends before the nav bar,
+ * so an edge that could only move inwards had nothing to close the gap with. [MAX_CHROME_GAP_FRACTION]
+ * bounds how far that stretch may reach, so a short list on a screen that happens to have bars is
+ * left alone rather than pulled out to fill it.
+ */
+private fun fitBetweenChrome(
     region: FeedRegion,
     screen: FeedRegion,
-    topFound: Boolean,
-    bottomFound: Boolean,
-): FeedRegion = FeedRegion(
-    left = region.left,
-    top = if (topFound) {
-        region.top
-    } else {
-        maxOf(region.top, screen.top + (screen.height * MIN_TOP_CHROME_FRACTION).toInt())
-    },
-    right = region.right,
-    bottom = if (bottomFound) {
-        region.bottom
-    } else {
-        minOf(region.bottom, screen.bottom - (screen.height * MIN_BOTTOM_CHROME_FRACTION).toInt())
-    },
-)
+    topEdge: Int?,
+    bottomEdge: Int?,
+): FeedRegion {
+    val reach = (screen.height * MAX_CHROME_GAP_FRACTION).toInt()
+    val top = when {
+        topEdge == null ->
+            maxOf(region.top, screen.top + (screen.height * MIN_TOP_CHROME_FRACTION).toInt())
+        // Reaching up to meet the bar, but only across a gap small enough to be one.
+        region.top - topEdge > reach -> region.top
+        else -> topEdge
+    }
+    val bottom = when {
+        bottomEdge == null ->
+            minOf(region.bottom, screen.bottom - (screen.height * MIN_BOTTOM_CHROME_FRACTION).toInt())
+        bottomEdge - region.bottom > reach -> region.bottom
+        else -> bottomEdge
+    }
+    // Inverted edges mean the bars overlap, which is not a feed. An empty region is refused above.
+    return FeedRegion(region.left, top, region.right, maxOf(top, bottom))
+}

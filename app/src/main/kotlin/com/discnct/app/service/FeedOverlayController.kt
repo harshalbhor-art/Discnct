@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.PixelFormat
 import android.provider.Settings
 import android.view.Gravity
@@ -25,16 +24,15 @@ import kotlin.math.abs
  *
  * Three things here are not obvious:
  *
- *  * **The frosting is drawn, not requested.** The obvious way is
+ *  * **The cover is painted, never requested from the system.** The tempting way to frost a feed is
  *    [WindowManager.LayoutParams.blurBehindRadius], and it is wrong here: blur-behind goes the same
  *    way as `FLAG_DIM_BEHIND` and applies to everything behind the window rather than the window's
- *    own rectangle, so a cover correctly sized to the feed still frosted the bottom navigation.
- *    Nothing bounds it. A still of what we're covering, drawn inside our own bounds, cannot escape
- *    them — see [FeedFrost].
+ *    own rectangle, so a cover correctly sized to the feed still frosted the bottom navigation, and
+ *    nothing bounds it. What [FeedOverlayView] draws inside its own bounds cannot escape them.
  *  * **Appearing is animated, and so is leaving.** A cover that snaps on mid-scroll reads as a
  *    glitch in Instagram; the same cover fading up over half a second reads as something arriving
  *    on purpose. Reversing mid-fade travels only the distance that's left.
- *  * **Covering a feed has to silence it too.** A reel under the glass keeps playing, and its
+ *  * **Covering a feed has to silence it too.** A reel under the cover keeps playing, and its
  *    controls are behind a window that eats every touch. [FeedSilencer] holds audio focus for
  *    exactly as long as the cover is up.
  *
@@ -69,11 +67,10 @@ class FeedOverlayController(private val context: Context) {
      * revoked at any time and a cover that crashed on being switched off would be worse than one
      * that stops working.
      *
-     * @param frost the still to frost with, captured before this window existed. Only used when the
-     *   window is being created: the glass is deliberately frozen, so later scans pass null and the
-     *   first still stays.
+     * @param tone which way round to paint it, from the user's light/dark setting. Passed on every
+     *   call so a theme change while the cover is up is picked up on the next scan.
      */
-    fun show(detection: FeedDetection, frost: Bitmap? = null) {
+    fun show(detection: FeedDetection, tone: CoverTone) {
         if (!Settings.canDrawOverlays(context)) return
         val bounds = detection.feedRegion
         if (bounds.isEmpty) {
@@ -84,7 +81,7 @@ class FeedOverlayController(private val context: Context) {
         val existing = view
         if (existing == null) {
             val fresh = FeedOverlayView(context).apply {
-                setFrost(frost)
+                setTone(tone)
                 alpha = 0f
             }
             val freshParams = layoutParamsFor(bounds)
@@ -96,14 +93,17 @@ class FeedOverlayController(private val context: Context) {
             progress = 0f
             goal = 0f
             silencer.silence()
-        } else if (region != bounds) {
-            val current = params ?: return
-            current.x = bounds.left
-            current.y = bounds.top
-            current.width = bounds.width
-            current.height = bounds.height
-            runCatching { windowManager.updateViewLayout(existing, current) }
-            region = bounds
+        } else {
+            existing.setTone(tone)
+            if (region != bounds) {
+                val current = params ?: return
+                current.x = bounds.left
+                current.y = bounds.top
+                current.width = bounds.width
+                current.height = bounds.height
+                runCatching { windowManager.updateViewLayout(existing, current) }
+                region = bounds
+            }
         }
         fadeTo(1f)
     }
@@ -173,8 +173,6 @@ class FeedOverlayController(private val context: Context) {
         region = null
         progress = 0f
         goal = 0f
-        // Before removing the window, so a still nobody can see isn't held until the next GC.
-        going.setFrost(null)
         runCatching { windowManager.removeView(going) }
         silencer.release()
     }
@@ -189,7 +187,7 @@ class FeedOverlayController(private val context: Context) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             // Not focusable: the host app keeps input focus, so the keyboard and the back gesture
             // behave normally. Not NOT_TOUCHABLE, though — swallowing touches over the feed is the
-            // entire point, and without it the user would scroll an invisible feed under the glass.
+            // entire point, and without it the user would scroll an invisible feed under the cover.
             //
             // LAYOUT_IN_SCREEN is the one that has to be here. The coordinates come from
             // AccessibilityNodeInfo.getBoundsInScreen(), which measures from the top of the

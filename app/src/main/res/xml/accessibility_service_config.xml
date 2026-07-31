@@ -7,17 +7,14 @@
   canRetrieveWindowContent + flagReportViewIds are required to read the on-screen view resource-ids
   (e.g. com.instagram.android:id/clips_viewer_view_pager) that identify a reel surface. Note that
   it has to be the viewer's own id: the Reels *tab button* is on screen everywhere in Instagram.
-  canTakeScreenshot is what lets the feed cover be frosted glass instead of a flat sheet. The
-  system's own blur-behind can't be confined to a rectangle — it blurs the whole screen behind the
-  window, bottom navigation included — so the cover takes one still of the area it is about to
-  cover, blurs that, and draws it inside its own bounds. The image never leaves the device and is
-  dropped the moment the cover comes down.
+  There is deliberately no canTakeScreenshot here. An earlier feed cover frosted a still of the
+  timeline, which meant asking for the right to photograph the screen; the cover is a solid pane
+  now, so the capability came back out. Discnct reads view ids and bounds, and never pixels.
 -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
-    android:canTakeScreenshot="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100" />

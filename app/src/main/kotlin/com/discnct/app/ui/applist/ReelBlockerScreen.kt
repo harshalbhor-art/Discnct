@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
  *
  * Two per-app switches, because they're genuinely different habits and plenty of people want one
  * without the other. **Reels & Shorts** bounces you out of the full-screen viewer. **Main feed
- * cover** lays frosted glass over the scrolling timeline where it sits, leaving the top bar, the
+ * cover** lays a solid pane over the scrolling timeline where it sits, leaving the top bar, the
  * bottom navigation, DMs, search, posting and profiles alone.
  *
  * No games and no timer live here. There's nothing to dismiss or play through, so there's nothing
@@ -111,7 +111,7 @@ fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 Text(
                     text = "Take out the endless parts of an app and leave the rest working. " +
                         "Reels and Shorts bounce you straight back to where you came from; a " +
-                        "covered feed goes behind frosted glass where it sits. The top bar, the " +
+                        "covered feed goes behind a solid pane where it sits. The top bar, the " +
                         "bottom navigation, messages, search, posting and profiles all keep " +
                         "working either way. There's no way to earn your way in — to get them " +
                         "back, turn the switch off.",
@@ -268,7 +268,7 @@ private fun GuardedAppRow(
             SurfaceToggleRow(
                 title = "Main feed cover",
                 subtitle = if (row.isFeedBlocked) {
-                    "Timeline and stories behind glass"
+                    "Timeline and stories covered over"
                 } else {
                     "Allowed"
                 },

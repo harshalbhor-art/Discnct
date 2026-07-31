@@ -1,6 +1,7 @@
 package com.discnct.app.service
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -10,107 +11,103 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
-import android.util.TypedValue
 import android.view.View
+import com.discnct.app.ui.theme.ThemeMode
+
+/** Which way round the cover is painted. Follows the user's light/dark choice, nothing else. */
+enum class CoverTone { DARK, LIGHT }
 
 /**
- * What the user sees where the feed was: frosted glass, and a card telling them to get out.
+ * The cover's colour, from the app's theme setting.
  *
- * The version before this one drew a wireframe of Instagram — empty post cards, blank story rings —
- * measured off the real views underneath. It was a nice idea and it did not survive contact with a
- * real phone: a shell that is *almost* aligned with the app behind it reads as a broken render, and
- * the closer it gets to right the more the remaining error stands out. So the shell is gone. One
- * pane of dark glass over the whole scrolling surface has no alignment to get wrong, and it says
- * the thing more plainly anyway.
+ * SYSTEM asks the device, and an *undefined* night mode counts as dark: Discnct is a dark-first app
+ * and a cover that came out white on a phone that couldn't say would be the more startling mistake.
+ */
+fun coverToneFor(mode: ThemeMode, context: Context): CoverTone = when (mode) {
+    ThemeMode.LIGHT -> CoverTone.LIGHT
+    ThemeMode.DARK -> CoverTone.DARK
+    ThemeMode.SYSTEM -> {
+        val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        if (night == Configuration.UI_MODE_NIGHT_NO) CoverTone.LIGHT else CoverTone.DARK
+    }
+}
+
+/**
+ * What the user sees where the feed was: a solid pane, and a card telling them to get out.
  *
- * The glass is a still of what's underneath, shrunk and stretched back out — see [FeedFrost]. It's
- * drawn here rather than asked of the compositor because the system's blur-behind cannot be
- * confined to a rectangle, and a cover that frosts the bottom navigation along with the feed is an
- * app block wearing a disguise. Over the still goes a tint: enough to make the feed unreadable, not
- * so much that the app disappears and the cover reads as a crash. With no still to work from the
- * tint has to do the whole job alone, so it goes much darker.
+ * This has been through two failed ideas, and both failed the same way. First a wireframe of
+ * Instagram — empty post cards, blank story rings — measured off the real views underneath;
+ * almost-aligned reads as a broken render, and the closer it got the worse the remaining error
+ * looked. Then frosted glass made from a screenshot of the feed, shrunk and stretched back out:
+ * that came out visibly pixelated, and because the still was frozen while the feed underneath was
+ * not, the two drifted apart into a ghost of a scroll position that no longer existed.
+ *
+ * So the cover is solid now, and the lesson is that a block should not try to *resemble* what it is
+ * covering. There is no alignment to get wrong, no staleness to drift, no capture to pay for, and —
+ * because nothing is sampled from the screen any more — the accessibility service no longer needs
+ * permission to take screenshots at all.
  *
  * Drawn with a plain [Canvas] rather than Compose. A ComposeView added straight to the
  * WindowManager needs a lifecycle owner, a saved-state registry and a recomposer attached by hand
- * before it will draw at all; for a scrim and a card that is a lot of machinery to own and a lot of
+ * before it will draw at all; for a pane and a card that is a lot of machinery to own and a lot of
  * ways to leak one.
  */
 class FeedOverlayView(context: Context) : View(context) {
 
-    // Not named `background`: View already has getBackground(), and a Kotlin property of that name
-    // generates a getter with the same JVM signature and a different return type.
-    private val glass = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CARD_FILL }
-    private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = CARD_EDGE
-        style = Paint.Style.STROKE
-        strokeWidth = dp(1.5f)
-    }
     private val glow = Paint(Paint.ANTI_ALIAS_FLAG)
     private val headline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = TEXT
         textAlign = Paint.Align.CENTER
         letterSpacing = 0.04f
         typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
     }
 
     private val card = RectF()
-    private val pane = RectF()
     private val clip = Path()
     private val artwork = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
-    private var frost: Bitmap? = null
+    private var tone = CoverTone.DARK
     private var cachedPoster: Bitmap? = null
     private var posterMissing = false
     private var glowShaderSide = 0f
 
-    /**
-     * Take the still that becomes the glass: a shrunken copy of what this window is covering,
-     * stretched back over the whole pane. Null falls back to a tint dark enough to stand alone.
-     */
-    fun setFrost(bitmap: Bitmap?) {
-        if (frost === bitmap) return
-        frost = bitmap
+    /** Paint the cover dark or light. No effect if it's already that way round. */
+    fun setTone(value: CoverTone) {
+        if (tone == value) return
+        tone = value
+        glow.shader = null
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
-        val still = frost
-        if (still != null) {
-            pane.set(0f, 0f, width.toFloat(), height.toFloat())
-            // Stretching a 160px-wide still back to full width is where the blur comes from.
-            canvas.drawBitmap(still, null, pane, artwork)
-            canvas.drawColor(SCRIM_FROSTED)
-        } else {
-            // Nothing to frost, so the tint is all that stands between the user and the feed.
-            canvas.drawColor(SCRIM_FLAT)
-        }
+        canvas.drawColor(if (tone == CoverTone.DARK) COVER_DARK else COVER_LIGHT)
         if (!layOutCard()) return
 
-        val radius = card.width() * CARD_CORNER_FRACTION
         val art = poster(card.width().toInt())
         if (art != null) {
+            val radius = card.width() * CARD_CORNER_FRACTION
             canvas.save()
             clip.reset()
             clip.addRoundRect(card, radius, radius, Path.Direction.CW)
             canvas.clipPath(clip)
             // Square source into a square card, so the scale is uniform and nothing distorts.
+            // Nothing is stroked around it: the artwork is the card, and a border drawn over its
+            // own edge was the outline that showed up on device.
             canvas.drawBitmap(art, null, card, artwork)
             canvas.restore()
         } else {
-            canvas.drawRoundRect(card, radius, radius, glass)
+            // No artwork to find, so say it in words instead.
             drawGlow(canvas)
             drawHeadline(canvas)
         }
-        canvas.drawRoundRect(card, radius, radius, edge)
     }
 
     /**
      * The poster, decoded no larger than the card that will hold it.
      *
-     * Two things make this worth more than a plain `getDrawable`. The art is 1254px square and the
-     * card is 500; decoded whole that is six megabytes of bitmap held for the lifetime of an
-     * accessibility service, to draw something a fifth of the size. And it's looked up by name
-     * rather than by generated id, so the code compiles and runs whether or not the asset is
+     * Two things make this worth more than a plain `getDrawable`. The art is 1254px square; decoded
+     * whole on a phone whose card comes out smaller than that, it is megabytes of bitmap held for
+     * the lifetime of an accessibility service to draw something smaller. And it's looked up by
+     * name rather than by generated id, so the code compiles and runs whether or not the asset is
      * there — with nothing to find, [drawHeadline] draws the words instead.
      */
     private fun poster(side: Int): Bitmap? {
@@ -148,13 +145,14 @@ class FeedOverlayView(context: Context) : View(context) {
 
     /**
      * Size and centre the card. Square, [CARD_SIZE_PX] on a side, shrunk to fit when the covered
-     * strip is smaller than that — a card that overhangs the cover would be painted onto the live
-     * app on either side of it.
+     * strip is smaller than that — a card that overhung the cover would be painted onto the live
+     * app on either side of it. On a 1080px-wide phone the asked-for 1200 is wider than the feed
+     * itself, so [CARD_MAX_FRACTION] is what it actually comes out at.
      */
     private fun layOutCard(): Boolean {
         val available = minOf(width, height) * CARD_MAX_FRACTION
         val side = minOf(CARD_SIZE_PX, available)
-        if (side < dp(80f)) return false
+        if (side < MIN_CARD_PX) return false
         val cx = width / 2f
         val cy = height / 2f
         card.set(cx - side / 2f, cy - side / 2f, cx + side / 2f, cy + side / 2f)
@@ -164,13 +162,18 @@ class FeedOverlayView(context: Context) : View(context) {
     /** The light at the end of it, sitting behind the words. */
     private fun drawGlow(canvas: Canvas) {
         val side = card.width()
-        if (glowShaderSide != side) {
+        if (glowShaderSide != side || glow.shader == null) {
             glowShaderSide = side
+            val dark = tone == CoverTone.DARK
             glow.shader = RadialGradient(
                 card.centerX(),
                 card.centerY(),
                 side * 0.55f,
-                intArrayOf(GLOW_CORE, GLOW_MID, GLOW_EDGE),
+                intArrayOf(
+                    if (dark) GLOW_CORE_DARK else GLOW_CORE_LIGHT,
+                    if (dark) GLOW_MID_DARK else GLOW_MID_LIGHT,
+                    if (dark) GLOW_EDGE_DARK else GLOW_EDGE_LIGHT,
+                ),
                 floatArrayOf(0f, 0.45f, 1f),
                 Shader.TileMode.CLAMP,
             )
@@ -181,6 +184,7 @@ class FeedOverlayView(context: Context) : View(context) {
 
     /** GET / OUT, as big as the card will take. */
     private fun drawHeadline(canvas: Canvas) {
+        headline.color = if (tone == CoverTone.DARK) TEXT_ON_DARK else TEXT_ON_LIGHT
         val target = card.width() * HEADLINE_WIDTH_FRACTION
         headline.textSize = MEASURE_SIZE
         val widest = maxOf(headline.measureText(LINE_ONE), headline.measureText(LINE_TWO))
@@ -194,9 +198,6 @@ class FeedOverlayView(context: Context) : View(context) {
         canvas.drawText(LINE_TWO, card.centerX(), first + line, headline)
     }
 
-    private fun dp(value: Float): Float =
-        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, resources.displayMetrics)
-
     private companion object {
         /** `res/drawable-nodpi/get_out.webp`. Absent, the card falls back to drawing the words. */
         const val POSTER_NAME = "get_out"
@@ -204,31 +205,34 @@ class FeedOverlayView(context: Context) : View(context) {
         const val LINE_ONE = "GET"
         const val LINE_TWO = "OUT"
 
-        /** The card, as asked for: 500×500 with curved corners. */
-        const val CARD_SIZE_PX = 500f
+        /** The card, as asked for: 1200×1200 with curved corners and no border of any kind. */
+        const val CARD_SIZE_PX = 1200f
 
         /** Never more than this share of the cover, so the card can't reach past its edges. */
-        const val CARD_MAX_FRACTION = 0.8f
+        const val CARD_MAX_FRACTION = 0.92f
         const val CARD_CORNER_FRACTION = 0.08f
         const val HEADLINE_WIDTH_FRACTION = 0.66f
+
+        /** Below this the card is too small to read and the cover is better off plain. */
+        const val MIN_CARD_PX = 200f
 
         /** Any size works — the text is scaled off what it measures at this one. */
         const val MEASURE_SIZE = 100f
 
-        // The tint over the still. The still is already unreadable — it's 160px stretched across a
-        // phone — so this is here for mood rather than concealment, and stays light enough that
-        // the shape of the app shows through and the cover reads as glass rather than a crash.
-        const val SCRIM_FROSTED = 0xB3000000.toInt()
+        // Opaque, both of them. The point of dropping the screenshot was that the feed underneath
+        // stops being visible at all, and anything short of full alpha leaves it faintly readable.
+        const val COVER_DARK = 0xFF000000.toInt()
+        const val COVER_LIGHT = 0xFFFFFFFF.toInt()
 
-        /** No still to hide behind, so the tint has to do the whole job on its own. */
-        const val SCRIM_FLAT = 0xEB000000.toInt()
+        const val TEXT_ON_DARK = 0xFFF2F2F2.toInt()
+        const val TEXT_ON_LIGHT = 0xFF101010.toInt()
 
-        const val CARD_FILL = 0x1FFFFFFF
-        const val CARD_EDGE = 0x40FFFFFF
-        const val TEXT = 0xFFF2F2F2.toInt()
+        const val GLOW_CORE_DARK = 0x33FFFFFF
+        const val GLOW_MID_DARK = 0x14FFFFFF
+        const val GLOW_EDGE_DARK = 0x00FFFFFF
 
-        const val GLOW_CORE = 0x33FFFFFF
-        const val GLOW_MID = 0x14FFFFFF
-        const val GLOW_EDGE = 0x00FFFFFF
+        const val GLOW_CORE_LIGHT = 0x22000000
+        const val GLOW_MID_LIGHT = 0x0D000000
+        const val GLOW_EDGE_LIGHT = 0x00000000
     }
 }

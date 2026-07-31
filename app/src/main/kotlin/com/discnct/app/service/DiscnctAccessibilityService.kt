@@ -2,17 +2,12 @@ package com.discnct.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.graphics.Bitmap
 import android.graphics.Rect
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import androidx.annotation.RequiresApi
-import com.discnct.app.feed.FeedDetection
 import com.discnct.app.feed.FeedNode
 import com.discnct.app.feed.FeedRegion
 import com.discnct.app.feed.detectFeedSurface
@@ -27,6 +22,8 @@ import com.discnct.app.reel.nextBounce
 import com.discnct.app.ui.applist.BlockListStore
 import com.discnct.app.ui.blockscreen.BlockActivity
 import com.discnct.app.ui.settings.PauseStore
+import com.discnct.app.ui.theme.ThemeMode
+import com.discnct.app.ui.theme.ThemeStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,11 +40,10 @@ import kotlinx.coroutines.launch
  *     view ids or a browser's URL), bounce the user out with a global Back.
  *
  *  3. **Feed cover (Level 1):** for apps on the feed-block list, find the scrolling timeline with
- *     [detectFeedSurface], take one still of it, and lay that back over it frosted with
- *     [FeedOverlayController]. Nothing is hidden — we can't touch another app's views — the feed is
- *     covered where it sits, so the top bar and the bottom navigation both keep working. The cover
- *     also holds audio focus, because a reel under the glass would otherwise keep playing where
- *     nobody can reach its controls.
+ *     [detectFeedSurface] and lay a solid pane over it with [FeedOverlayController]. Nothing is
+ *     hidden — we can't touch another app's views — the feed is covered where it sits, so the top
+ *     bar and the bottom navigation both keep working. The cover also holds audio focus, because a
+ *     reel underneath would otherwise keep playing where nobody can reach its controls.
  *
  * Both Level 1 blocks are surgical: the rest of the host app stays usable, and neither has anything
  * to dismiss or play through.
@@ -84,16 +80,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var lastForegroundPackage: String? = null
 
-    /**
-     * A screenshot is in flight for the cover about to go up.
-     *
-     * Without this a burst of scroll events would queue several captures for one cover, and the
-     * system rate-limits screenshots hard enough that all but the first would fail anyway.
-     */
-    private var frostPending = false
-
-    /** Bumped every time the cover comes down, so a late screenshot knows it's stale. */
-    private var coverGeneration = 0
+    /** The user's light/dark choice, which is the only thing the cover's colour follows. */
+    @Volatile
+    private var themeMode: ThemeMode = ThemeMode.SYSTEM
 
     /** Rate-limiting state for the Level 1 Back bounce. See [nextBounce]. */
     @Volatile
@@ -118,6 +107,9 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
         serviceScope.launch {
             BlockerGamesStore(applicationContext).reelBlockingEnabled.collect { reelBlockingEnabled = it }
+        }
+        serviceScope.launch {
+            ThemeStore(applicationContext).themeMode.collect { themeMode = it }
         }
         serviceScope.launch {
             PauseStore(applicationContext).pausedUntilMillis.collect {
@@ -238,77 +230,12 @@ class DiscnctAccessibilityService : AccessibilityService() {
             hideOverlay()
             return
         }
-        // Already up: keep it where the feed is, and leave the glass alone. It's frozen on purpose.
-        if (overlay.isShowing) {
-            overlay.show(detection)
-            return
-        }
-        if (frostPending) return
-        if (!captureFrost(detection)) overlay.show(detection)
+        overlay.show(detection, coverToneFor(themeMode, this))
     }
 
-    /**
-     * Grab the still the cover will be frosted with, then raise the cover.
-     *
-     * It has to happen before the window exists, because a screenshot is of the *display* — with
-     * the cover already up we would be frosting our own glass, and every appearance would come out
-     * murkier than the last.
-     *
-     * @return true if a capture is under way and will raise the cover itself. False means raise it
-     *   now without one: no screenshot capability below Android 11, and a plain tint beats no cover.
-     */
-    private fun captureFrost(detection: FeedDetection): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
-        frostPending = true
-        val wanted = coverGeneration
-        val started = runCatching {
-            takeScreenshot(
-                Display.DEFAULT_DISPLAY,
-                mainExecutor,
-                object : TakeScreenshotCallback {
-                    override fun onSuccess(screenshot: ScreenshotResult) {
-                        frostPending = false
-                        val frost = frostFrom(screenshot, detection.feedRegion)
-                        if (coverGeneration == wanted) overlay.show(detection, frost)
-                    }
-
-                    override fun onFailure(errorCode: Int) {
-                        // Throttled, or the display went away mid-flight. Cover it anyway.
-                        frostPending = false
-                        if (coverGeneration == wanted) overlay.show(detection)
-                    }
-                },
-            )
-            true
-        }.getOrDefault(false)
-        if (!started) frostPending = false
-        return started
-    }
-
-    /**
-     * Take the cover down, and make sure a capture still in flight doesn't put it back up.
-     *
-     * A screenshot takes long enough that the user can be off the feed before it lands. Without the
-     * generation check, leaving Instagram mid-capture would raise a cover over whatever they went
-     * to next — DMs, or another app entirely.
-     */
+    /** Take the cover down. Nothing else to unwind — the cover holds no captured state. */
     private fun hideOverlay() {
-        coverGeneration++
         overlay.hide()
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun frostFrom(screenshot: ScreenshotResult, region: FeedRegion): Bitmap? {
-        val buffer = screenshot.hardwareBuffer
-        return try {
-            Bitmap.wrapHardwareBuffer(buffer, screenshot.colorSpace)
-                ?.let { frostedCrop(it, region) }
-        } catch (_: IllegalArgumentException) {
-            null
-        } finally {
-            // Ours to close, and the crop above has already copied what it needs out of it.
-            buffer.close()
-        }
     }
 
     /**
@@ -396,10 +323,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onUnbind(intent: Intent?): Boolean {
-        // dispose, not hide: a fade needs something alive to finish it and remove the window. The
-        // generation bump is for a screenshot still in flight — landing after this, it must not
-        // raise a window the service is no longer around to take down.
-        coverGeneration++
+        // dispose, not hide: a fade needs something alive to finish it and remove the window.
         overlay.dispose()
         return super.onUnbind(intent)
     }
@@ -407,7 +331,6 @@ class DiscnctAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         mainHandler.removeCallbacksAndMessages(null)
-        coverGeneration++
         overlay.dispose()
         serviceJob.cancel()
     }

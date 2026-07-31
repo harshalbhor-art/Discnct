@@ -87,6 +87,44 @@ class FeedRulesTest {
         assertTrue(hit.feedRegion.bottom > BOTTOM_SAFE, "the band must not hold the cover back")
     }
 
+    @Test fun `the cover stretches down to a nav bar the feed container stops short of`() {
+        // Straight off a device screenshot: Instagram's timeline ends above the bottom navigation
+        // rather than running under it, and an edge that could only move inwards had nothing to
+        // close the gap with. What showed through was a live like-and-comment row below the cover.
+        val nodes = listOf(
+            node("action_bar", 0, 160),
+            node("recycler_view", 160, 2100),
+            node("row_feed_photo_imageview", 400, 1400),
+            node("tab_bar", 2200, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        assertEquals(2200, hit.feedRegion.bottom, "the cover must reach the nav bar, not stop above it")
+    }
+
+    @Test fun `the cover stretches up to a top bar the feed container starts below`() {
+        val nodes = listOf(
+            node("action_bar", 0, 160),
+            node("recycler_view", 260, 2200),
+            node("row_feed_photo_imageview", 400, 1400),
+            node("tab_bar", 2200, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        assertEquals(160, hit.feedRegion.top)
+    }
+
+    @Test fun `a short list is not stretched out to fill the space between the bars`() {
+        // The limit on the reach above. A gap of tens of pixels is a feed ending early; a gap of
+        // most of the screen is a different surface, and covering it would be an app block.
+        val nodes = listOf(
+            node("action_bar", 0, 160),
+            node("recycler_view", 700, 1700),
+            node("row_feed_photo_imageview", 750, 1650),
+            node("tab_bar", 2200, 2400),
+        )
+        val hit = assertNotNull(detectFeedSurface("com.instagram.android", nodes, SCREEN))
+        assertEquals(FeedRegion(0, 700, W, 1700), hit.feedRegion)
+    }
+
     @Test fun `the bottom band stays clear when no nav bar is recognised at all`() {
         val nodes = listOf(
             node("recycler_view", 0, 2400),

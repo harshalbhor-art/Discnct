@@ -8,7 +8,7 @@ import android.media.AudioManager
 /**
  * Stops the feed making noise while it's covered.
  *
- * A covered feed is still a running feed: a reel keeps playing under the glass, and the controls
+ * A covered feed is still a running feed: a reel keeps playing under the cover, and the controls
  * that would mute it are behind a window that swallows every touch. The user is left with sound
  * they can't reach coming from something they can't see.
  *
