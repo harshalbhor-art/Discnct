@@ -26,11 +26,21 @@ swap each `.phone` block for an `<img>`.
 
 ## Deploying `landing/`
 
-1. New Vercel project → import this repo.
+**It is deployed:** <https://discnct.vercel.app> (Vercel project `discnct`, team
+"Harshal's art", production).
+
+That first deploy was a direct file upload, which means **the project is not connected to
+GitHub yet** — pushing to this repo will not redeploy it. Connecting it is a one-time job
+in the dashboard and worth doing:
+
+1. Vercel → project `discnct` → Settings → Git → **Connect Git Repository** →
+   `harshalbhor-art/Discnct`.
 2. Set **Root Directory** to `web/landing`.
 3. Framework preset: **Other** (it's static — no build command, no output directory
-   override needed).
-4. Deploy. That's it — no environment variables.
+   override needed). No environment variables.
+
+After that, every push to the production branch redeploys the site on its own, and the
+URL above stays the same. Until then, redeploying means re-uploading `web/landing/`.
 
 Before or after deploying, edit the `<meta>` tag at the top of
 `web/landing/index.html`:
