@@ -98,15 +98,25 @@ Things to actually exercise manually (this is UI/behavioral verification the
   Quick Settings tile both flip the master switch, and both refuse to turn it
   *off* while Strict Mode holds a PIN.
 - Level 2 (App Blocker + Games): opening a blocklisted app triggers the block
-  overlay; the hold-to-unlock timer works; and each of the 7 mini-games runs
-  end-to-end (Tic-Tac-Toe, Minesweeper, Wordle, 2048, Chess puzzle, Breathing,
-  Fidget Spinner) awarding the correct unlock minutes on win/loss.
+  overlay; the hold-to-unlock timer works; and each of the 9 mini-games runs
+  end-to-end (Tic-Tac-Toe, Minesweeper, Wordle, Word Search, 2048, Chess puzzle,
+  Dino Run, Breathing, Fidget Spinner) awarding the correct unlock minutes on
+  win/loss.
+- Chess depth: puzzles now run up to three moves. Play one out — your move, the
+  forced reply played back highlighted, your move — and check that a *second*
+  legal mate is accepted rather than called wrong.
+- Dino Run: tapping anywhere in the play area jumps, the tallest cactus is
+  clearable, and two cacti in quick succession can both be cleared at speed.
 - Game sizing: every board is centred on screen and grows to fill the width
   without overflowing it — worth checking on both a small phone and a tablet,
   since the scale factor is clamped per screen.
 - The TRY button on each game row plays that game without awarding anything.
 - Level 3 (Total Disconnect): restricted-launcher mode shows only the allowed
   apps, and blocked ones still route through the block screen.
+- Financial exemption: with a banking or payments app exempt in Settings >
+  Financial Apps, opening it takes any feed cover straight down and stops the
+  reel bounce and the block screen; leaving it puts all three back on the very
+  next event, with nothing left switched off.
 
 Use `adb logcat *:E` alongside manual taps to catch runtime exceptions the
 compiler won't.
