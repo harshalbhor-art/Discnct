@@ -3,10 +3,10 @@
 Two independent, statically-deployable pieces, neither part of the Android Gradle
 build:
 
-- **`landing/`** — the marketing site. Static HTML, no build step. `index.html` explains
-  the app, walks through the three levels and the stats screens, and links out to the
-  APK download. `pay.html` is the support page: pick an amount, scan the QR with any
-  UPI app. `qr/` holds the pre-rendered codes and the script that makes them.
+- **`landing/`** — the marketing site. One static `index.html`, no build step: the app,
+  the three levels, the stats screens, the APK download, and a scan-to-pay support
+  section at the bottom. `qr/` holds the pre-rendered UPI codes and the script that
+  makes them.
 - **`coffee/`** — an unused Stripe Checkout flow. **The landing page no longer points
   at it.** Support payments now go by UPI, handled entirely in `landing/index.html`
   with no server involved, matching what the Android app does. This directory is kept
@@ -51,8 +51,8 @@ Before or after deploying, edit the `<meta>` tag at the top of
 The VPA lives in exactly two places on the web side, and both have to move together:
 
 1. `web/landing/qr/generate.py` — the `UPI_ID` constant.
-2. `web/landing/pay.html` — the `UPI_ID` constant in the inline script, used only by the
-   "Open a UPI app instead" button.
+2. `web/landing/index.html` — the `UPI_ID` constant in the script at the bottom, used
+   only to build the `upi://` link behind "Open a UPI app instead".
 
 Then regenerate the codes:
 
@@ -61,11 +61,11 @@ pip install qrcode
 python3 web/landing/qr/generate.py
 ```
 
-**`index.html` does not carry the payee at all** — its support button just links to
-`pay.html?amt=…`. That is deliberate: the ID appears on one page rather than on the
-page everyone lands on. It is not secret either way (it is inside the QR, and a VPA is
-an address for *receiving* money), but it keeps the main page free of something the
-Android app is careful never to render.
+**The ID is never rendered.** There is no copy button and no line of text showing the
+VPA — payment goes through the QR, or through the `upi://` button on a phone. It isn't
+secret either way (it's inside the QR, and a VPA is an address for *receiving* money);
+this just keeps the page free of the one string the Android app is careful never to
+put on screen.
 
 The URI the QRs encode must stay byte-identical to what the app builds in
 `SupportLinks.kt` — two decimals on the amount, `@` unencoded, `%20` not `+` in the

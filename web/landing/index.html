@@ -6,8 +6,8 @@
 <title>Discnct — escalating resistance between you and the scroll</title>
 <meta name="description" content="Discnct is a free, native Android app that fights reel and social-media addiction in three escalating levels: bounce out of Reels, block whole apps behind a game, or replace your home screen entirely." />
 
-<!-- Config: the APK link. The UPI payee deliberately isn't here — the support button hands
-     off to pay.html, which is the only page that carries the payee at all. -->
+<!-- Config: the APK link. The UPI payee isn't a meta tag — it's a constant in the script at the
+     bottom, used only to build the upi:// button link, and is never rendered on the page. -->
 <meta name="discnct-apk-url" content="https://github.com/harshalbhor-art/Discnct/releases/download/debug/discnct-debug-v0.1.0.apk" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -201,30 +201,33 @@ h2{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:32px;letter-
 .download-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap;}
 .download-card .meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-secondary);margin-top:10px;}
 
-/* ---------- support / upi ---------- */
-.coffee-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;text-align:center;max-width:560px;margin:0 auto;}
-.coffee-card p{color:var(--text-secondary);}
-.amounts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:26px 0 20px;}
+/* ---------- support / scan to pay ---------- */
+.pay-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;
+  display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center;text-align:left;
+}
+@media (max-width:800px){
+  .pay-card{grid-template-columns:1fr;gap:32px;text-align:center;justify-items:center;}
+}
+.pay-card p{color:var(--text-secondary);margin-top:0;}
+.amounts{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0 22px;}
+@media (max-width:800px){.amounts{justify-content:center;}}
 .amt{
-  font-family:'Space Mono',monospace;font-size:14px;padding:11px 20px;border-radius:999px;
+  font-family:'Space Mono',monospace;font-size:14px;padding:10px 18px;border-radius:999px;
   border:1px solid var(--border-visible);background:transparent;color:var(--text-secondary);cursor:pointer;
   transition:border-color .15s,color .15s;
 }
 .amt:hover{color:var(--text-primary);}
 .amt[aria-pressed="true"]{border-color:var(--text-display);color:var(--text-display);}
-.vpa{
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
-  background:var(--surface-raised);border:1px solid var(--border);border-radius:999px;
-  padding:11px 11px 11px 20px;margin-top:22px;text-align:left;
-}
-.vpa code{font-family:'Space Mono',monospace;font-size:13px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;}
-.vpa button{
-  font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.08em;flex:none;
-  border:1px solid var(--border-visible);background:transparent;color:var(--text-secondary);
-  border-radius:999px;padding:7px 14px;cursor:pointer;transition:color .15s,border-color .15s;
-}
-.vpa button:hover{color:var(--text-primary);border-color:var(--text-secondary);}
-.fineprint{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);margin-top:18px;line-height:1.6;}
+/* The QR is always dark-on-white whatever the page theme is doing — a scanner needs the
+   contrast the spec assumes, and an inverted QR fails on a fair number of phones. */
+.qr-card{background:#fff;border-radius:18px;padding:16px;width:100%;max-width:300px;box-shadow:0 24px 50px -24px rgba(0,0,0,.55);}
+.qr-card img{display:block;width:100%;height:auto;}
+.qr-side{display:flex;flex-direction:column;align-items:center;}
+.qr-meta{font-family:'Space Mono',monospace;font-size:13px;color:var(--text-primary);margin:18px 0 0;text-align:center;}
+.qr-meta .big{font-size:20px;color:var(--text-display);}
+.qr-sub{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);margin:6px 0 0;text-align:center;}
+.fineprint{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);margin-top:20px;line-height:1.7;}
 
 /* ---------- footer ---------- */
 footer{border-top:1px solid var(--border);padding:36px 0;}
@@ -243,7 +246,7 @@ footer a:hover{color:var(--text-primary);}
   section{padding:64px 0;}
   h2{font-size:26px;}
   .section-lead{font-size:16px;margin-bottom:36px;}
-  .principle,.download-card,.coffee-card{padding:24px;}
+  .principle,.download-card,.pay-card{padding:24px;}
   .level{padding:36px 0;gap:32px;}
   /* A 300px frame plus 28px gutters each side needs 356px; scale down under that. */
   .phone{width:270px;}
@@ -653,27 +656,46 @@ footer a:hover{color:var(--text-primary);}
   </section>
 
   <section id="support">
-    <div class="wrap" style="text-align:center;">
+    <div class="wrap">
       <p class="eyebrow">Support</p>
       <h2>Free, and staying that way.</h2>
-      <div class="coffee-card">
-        <p>Discnct has no ads, no subscription, and doesn't sell your data — which means it
-          has no revenue model at all. If it's helped you scroll less, a coffee helps keep it
-          built and maintained.</p>
+      <p class="section-lead">
+        Discnct has no ads, no subscription, and doesn't sell your data — which means it has no
+        revenue model at all. If it's helped you scroll less, a coffee helps keep it built.
+      </p>
 
-        <div class="amounts" id="amounts" role="group" aria-label="Pick an amount">
-          <button class="amt" type="button" data-amt="49" aria-pressed="false">₹49</button>
-          <button class="amt" type="button" data-amt="99" aria-pressed="true">₹99</button>
-          <button class="amt" type="button" data-amt="199" aria-pressed="false">₹199</button>
-          <button class="amt" type="button" data-amt="499" aria-pressed="false">₹499</button>
+      <div class="pay-card">
+        <div>
+          <p>Pick an amount and scan the code with any UPI app — GPay, PhonePe, Paytm, your
+            bank's. The amount is already in the code, so you only confirm it.</p>
+
+          <div class="amounts" id="amounts" role="group" aria-label="Pick an amount">
+            <button class="amt" type="button" data-amt="49" aria-pressed="false">₹49</button>
+            <button class="amt" type="button" data-amt="99" aria-pressed="true">₹99</button>
+            <button class="amt" type="button" data-amt="199" aria-pressed="false">₹199</button>
+            <button class="amt" type="button" data-amt="499" aria-pressed="false">₹499</button>
+            <button class="amt" type="button" data-amt="any" aria-pressed="false">Any</button>
+          </div>
+
+          <!-- Reading this on the phone you'd pay with? You can't scan your own screen. -->
+          <a class="btn btn-primary" id="open-upi" href="#">Open a UPI app instead</a>
+
+          <p class="fineprint">
+            Nothing is unlocked by paying — no features, no entitlement, no record. There's no
+            server on our side, so we can't tell whether a payment went through and there's
+            nothing to refund against. Only send what you'd be happy never thinking about again.
+          </p>
         </div>
 
-        <a class="btn btn-primary btn-lg" id="upi-btn" href="pay.html?amt=99">Pay ₹99 by UPI</a>
-
-        <p class="fineprint">
-          Opens a page with a QR your UPI app can scan — from a phone or a laptop. Nothing is
-          unlocked by paying: Discnct behaves exactly the same either way.
-        </p>
+        <div class="qr-side">
+          <div class="qr-card">
+            <!-- Pre-rendered per amount, so no QR library ships to the browser. -->
+            <img id="qr" src="qr/upi-99.svg" alt="UPI QR code to pay Discnct"
+                 width="300" height="300" loading="lazy" />
+          </div>
+          <p class="qr-meta"><span class="big" id="qr-amount">₹99</span> to Discnct</p>
+          <p class="qr-sub" id="qr-note">Scan with your phone's camera or UPI app.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -693,19 +715,34 @@ footer a:hover{color:var(--text-primary);}
     document.getElementById(id).href = apkUrl;
   }
 
-  // Picking an amount here only chooses which pay.html to open. No payee, no upi:// URI and
-  // no QR on this page — all of that lives one click away, so the landing page never carries
-  // the ID at all.
-  const payBtn = document.getElementById('upi-btn');
-  for (const b of document.querySelectorAll('.amt')) {
-    b.addEventListener('click', () => {
-      for (const o of document.querySelectorAll('.amt')) {
-        o.setAttribute('aria-pressed', String(o === b));
-      }
-      payBtn.textContent = 'Pay ₹' + b.dataset.amt + ' by UPI';
-      payBtn.href = 'pay.html?amt=' + b.dataset.amt;
-    });
+  // Every amount has its own QR, rendered ahead of time by qr/generate.py, so picking one is
+  // just swapping an <img> — there's no encoder in the browser and nothing to get wrong at
+  // runtime. The payee below is never displayed; it exists only to build the upi:// link for
+  // the button, which is what a visitor reading this on their phone needs.
+  const UPI_ID = 'harsh.bhor007@okhdfcbank';
+
+  function upiUri(amt) {
+    const q = s => encodeURIComponent(s).replace(/%40/g, '@');
+    let uri = 'upi://pay?pa=' + q(UPI_ID) + '&pn=' + q('Discnct');
+    if (amt !== 'any') uri += '&am=' + amt + '.00';
+    return uri + '&cu=INR&tn=' + q('Discnct Support');
   }
+
+  function selectAmount(amt) {
+    for (const b of document.querySelectorAll('.amt')) {
+      b.setAttribute('aria-pressed', String(b.dataset.amt === amt));
+    }
+    document.getElementById('qr').src = 'qr/upi-' + amt + '.svg';
+    document.getElementById('qr-amount').textContent = amt === 'any' ? 'Any amount' : '₹' + amt;
+    document.getElementById('qr-note').textContent = amt === 'any'
+      ? 'Type whatever you like in your UPI app.'
+      : "Scan with your phone's camera or UPI app.";
+    document.getElementById('open-upi').href = upiUri(amt);
+  }
+  for (const b of document.querySelectorAll('.amt')) {
+    b.addEventListener('click', () => selectAmount(b.dataset.amt));
+  }
+  selectAmount('99');
 
   const root = document.documentElement;
   document.getElementById('theme-toggle').addEventListener('click', () => {
