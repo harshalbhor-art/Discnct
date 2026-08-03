@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
+import com.discnct.app.cover.CoverSource
 import com.discnct.app.feed.FeedDetection
 import com.discnct.app.feed.FeedRegion
 import kotlin.math.abs
@@ -69,8 +70,10 @@ class FeedOverlayController(private val context: Context) {
      *
      * @param tone which way round to paint it, from the user's light/dark setting. Passed on every
      *   call so a theme change while the cover is up is picked up on the next scan.
+     * @param art the picture for the app being covered. Passed on every call for the same reason as
+     *   the tone: changing it in the picker has to show up without taking the cover down first.
      */
-    fun show(detection: FeedDetection, tone: CoverTone) {
+    fun show(detection: FeedDetection, tone: CoverTone, art: CoverSource?) {
         if (!Settings.canDrawOverlays(context)) return
         val bounds = detection.feedRegion
         if (bounds.isEmpty) {
@@ -82,6 +85,7 @@ class FeedOverlayController(private val context: Context) {
         if (existing == null) {
             val fresh = FeedOverlayView(context).apply {
                 setTone(tone)
+                setArt(art)
                 alpha = 0f
             }
             val freshParams = layoutParamsFor(bounds)
@@ -95,6 +99,7 @@ class FeedOverlayController(private val context: Context) {
             silencer.silence()
         } else {
             existing.setTone(tone)
+            existing.setArt(art)
             if (region != bounds) {
                 val current = params ?: return
                 current.x = bounds.left

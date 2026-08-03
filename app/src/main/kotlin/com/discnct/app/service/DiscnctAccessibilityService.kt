@@ -65,6 +65,12 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var feedBlockedPackages: Set<String> = emptySet()
 
+    private val coverImages by lazy { CoverImageStore(applicationContext) }
+
+    /** Each app's chosen cover picture, unresolved. Empty entries fall back to the locale default. */
+    @Volatile
+    private var coverKeys: Map<String, String> = emptyMap()
+
     /** Master switch for the reel blocker (Level 1). When false, reel scanning is skipped entirely. */
     @Volatile
     private var reelBlockingEnabled: Boolean = true
@@ -114,6 +120,11 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
         serviceScope.launch {
             ThemeStore(applicationContext).themeMode.collect { themeMode = it }
+        }
+        serviceScope.launch {
+            // No hideOverlaySoon() here: picking a new picture should swap it under a cover that's
+            // already up, not blink the cover off and on. The next scan repaints it.
+            coverImages.coverKeys.collect { coverKeys = it }
         }
         serviceScope.launch {
             FinanceAppStore(applicationContext).exemptPackages.collect {
@@ -265,7 +276,11 @@ class DiscnctAccessibilityService : AccessibilityService() {
             hideOverlay()
             return
         }
-        overlay.show(detection, coverToneFor(themeMode, this))
+        overlay.show(
+            detection,
+            coverToneFor(themeMode, this),
+            coverImages.resolve(coverKeys[foregroundPackage]),
+        )
     }
 
     /** Take the cover down. Nothing else to unwind — the cover holds no captured state. */

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.discnct.app.ui.applist.AllowedAppsScreen
 import com.discnct.app.ui.applist.AppBlockerScreen
+import com.discnct.app.ui.applist.CoverImageScreen
 import com.discnct.app.ui.applist.FinancialAppsScreen
 import com.discnct.app.ui.applist.ReelBlockerScreen
 import com.discnct.app.ui.applist.TotalDisconnectScreen
@@ -55,6 +56,9 @@ class MainActivity : ComponentActivity() {
         data object Settings : Screen
         data object ReelBlocker : Screen
         data object AppBlocker : Screen
+
+        /** Reached from a single app's row on [ReelBlocker], so it carries which app it's editing. */
+        data class CoverImage(val packageName: String) : Screen
         data object TotalDisconnect : Screen
         data object AllowedApps : Screen
         data object FinancialApps : Screen
@@ -89,6 +93,7 @@ class MainActivity : ComponentActivity() {
                     screen = when (screen) {
                         Screen.AllowedApps -> Screen.TotalDisconnect
                         Screen.FinancialApps -> Screen.Settings
+                        is Screen.CoverImage -> Screen.ReelBlocker
                         else -> Screen.Home
                     }
                 }
@@ -145,7 +150,14 @@ class MainActivity : ComponentActivity() {
                             }
                         } else {
                             when (screen) {
-                                Screen.ReelBlocker -> ReelBlockerScreen(onBack = { screen = Screen.Home })
+                                Screen.ReelBlocker -> ReelBlockerScreen(
+                                    onBack = { screen = Screen.Home },
+                                    onOpenCoverImage = { screen = Screen.CoverImage(it) },
+                                )
+                                is Screen.CoverImage -> CoverImageScreen(
+                                    packageName = (screen as Screen.CoverImage).packageName,
+                                    onBack = { screen = Screen.ReelBlocker },
+                                )
                                 Screen.AppBlocker -> AppBlockerScreen(onBack = { screen = Screen.Home })
                                 Screen.TotalDisconnect -> TotalDisconnectScreen(
                                     onBack = { screen = Screen.Home },

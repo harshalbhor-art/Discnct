@@ -12,7 +12,9 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import android.view.View
+import com.discnct.app.cover.CoverSource
 import com.discnct.app.ui.theme.ThemeMode
+import java.io.File
 
 /** Which way round the cover is painted. Follows the user's light/dark choice, nothing else. */
 enum class CoverTone { DARK, LIGHT }
@@ -66,8 +68,9 @@ class FeedOverlayView(context: Context) : View(context) {
     private val artwork = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
 
     private var tone = CoverTone.DARK
-    private var cachedPoster: Bitmap? = null
-    private var posterMissing = false
+    private var art: CoverSource? = null
+    private var cachedArt: Bitmap? = null
+    private var artMissing = false
     private var glowShaderSide = 0f
 
     /** Paint the cover dark or light. No effect if it's already that way round. */
@@ -75,6 +78,21 @@ class FeedOverlayView(context: Context) : View(context) {
         if (tone == value) return
         tone = value
         glow.shader = null
+        invalidate()
+    }
+
+    /**
+     * Choose which picture goes in the card, per app. Null draws the words instead.
+     *
+     * The old bitmap is dropped rather than recycled: this can be called from a store collector
+     * while a draw is in flight, and recycling a bitmap out from under [onDraw] crashes. Letting
+     * the collector take it is slower to reclaim and never wrong.
+     */
+    fun setArt(value: CoverSource?) {
+        if (art == value) return
+        art = value
+        cachedArt = null
+        artMissing = false
         invalidate()
     }
 
@@ -102,25 +120,38 @@ class FeedOverlayView(context: Context) : View(context) {
     }
 
     /**
-     * The poster, decoded no larger than the card that will hold it.
+     * The chosen picture, decoded no larger than the card that will hold it.
      *
      * Two things make this worth more than a plain `getDrawable`. The art is 1254px square; decoded
      * whole on a phone whose card comes out smaller than that, it is megabytes of bitmap held for
-     * the lifetime of an accessibility service to draw something smaller. And it's looked up by
-     * name rather than by generated id, so the code compiles and runs whether or not the asset is
-     * there — with nothing to find, [drawHeadline] draws the words instead.
+     * the lifetime of an accessibility service to draw something smaller. And a built-in is looked
+     * up by name rather than by generated id, so the code compiles and runs whether or not the
+     * asset is there — with nothing to find, [drawHeadline] draws the words instead.
+     *
+     * A user's own picture can vanish between being chosen and being drawn (they delete it, or
+     * clear the app's data), which is a missing file rather than an error: the cover falls back to
+     * the words exactly as it does for a missing built-in.
      */
     private fun poster(side: Int): Bitmap? {
-        cachedPoster?.let { return it }
-        if (posterMissing || side <= 0) return null
-        val id = resources.getIdentifier(POSTER_NAME, "drawable", context.packageName)
-        if (id == 0) {
-            posterMissing = true
-            return null
+        cachedArt?.let { return it }
+        if (artMissing || side <= 0) return null
+
+        val decoded = when (val source = art) {
+            null -> null
+            is CoverSource.Builtin -> decodeBuiltin(source.drawableName, side)
+            is CoverSource.UserImage -> decodeFile(File(File(context.filesDir, COVER_ART_DIR), source.fileName), side)
         }
+        if (decoded == null) artMissing = true
+        cachedArt = decoded
+        return decoded
+    }
+
+    private fun decodeBuiltin(drawableName: String, side: Int): Bitmap? {
+        val id = resources.getIdentifier(drawableName, "drawable", context.packageName)
+        if (id == 0) return null
         val measured = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeResource(resources, id, measured)
-        val decoded = runCatching {
+        return runCatching {
             BitmapFactory.decodeResource(
                 resources,
                 id,
@@ -130,9 +161,22 @@ class FeedOverlayView(context: Context) : View(context) {
                 },
             )
         }.getOrNull()
-        if (decoded == null) posterMissing = true
-        cachedPoster = decoded
-        return decoded
+    }
+
+    private fun decodeFile(file: File, side: Int): Bitmap? {
+        if (!file.isFile) return null
+        val measured = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, measured)
+        if (measured.outWidth <= 0) return null
+        return runCatching {
+            BitmapFactory.decodeFile(
+                file.path,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sampleSizeFor(measured.outWidth, side)
+                    inScaled = false
+                },
+            )
+        }.getOrNull()
     }
 
     /** The largest power-of-two downscale that still leaves the bitmap wider than [target]. */
@@ -199,9 +243,6 @@ class FeedOverlayView(context: Context) : View(context) {
     }
 
     private companion object {
-        /** `res/drawable-nodpi/get_out.webp`. Absent, the card falls back to drawing the words. */
-        const val POSTER_NAME = "get_out"
-
         const val LINE_ONE = "GET"
         const val LINE_TWO = "OUT"
 

@@ -30,11 +30,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.discnct.app.service.BlockerGamesStore
+import com.discnct.app.service.CoverImageStore
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.home.SectionTopBar
 import com.discnct.app.ui.onboarding.PermissionStatus
@@ -60,7 +62,11 @@ import kotlinx.coroutines.launch
  * to configure beyond which apps each switch applies to.
  */
 @Composable
-fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun ReelBlockerScreen(
+    onBack: () -> Unit,
+    onOpenCoverImage: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val viewModel: AppListViewModel = viewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val colors = LocalDiscnctColors.current
@@ -170,6 +176,7 @@ fun ReelBlockerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         masterEnabled = reelEnabled,
                         onToggleReels = { viewModel.setReelBlocked(row.packageName, it) },
                         onToggleFeed = { viewModel.setFeedBlocked(row.packageName, it) },
+                        onChangeImage = { onOpenCoverImage(row.packageName) },
                     )
                     HorizontalDivider(color = colors.border, thickness = 1.dp)
                 }
@@ -234,6 +241,7 @@ private fun GuardedAppRow(
     masterEnabled: Boolean,
     onToggleReels: (Boolean) -> Unit,
     onToggleFeed: (Boolean) -> Unit,
+    onChangeImage: () -> Unit,
 ) {
     val colors = LocalDiscnctColors.current
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
@@ -277,7 +285,55 @@ private fun GuardedAppRow(
                 checked = row.isFeedBlocked,
                 onCheckedChange = onToggleFeed,
             )
+            // Only while the cover is actually on: an image picker for a cover nobody will see is
+            // a setting with nothing behind it.
+            if (row.isFeedBlocked) {
+                ChangeImageRow(packageName = row.packageName, onClick = onChangeImage)
+            }
         }
+    }
+}
+
+/**
+ * Opens the picture picker for this app's cover, carrying a thumbnail of whatever it's using now.
+ *
+ * The thumbnail is the reason this is a row rather than a plain link: the choice is per app, and
+ * without it you'd have to open the picker to find out which app is set to what.
+ */
+@Composable
+private fun ChangeImageRow(packageName: String, onClick: () -> Unit) {
+    val colors = LocalDiscnctColors.current
+    val context = LocalContext.current
+    val store = remember { CoverImageStore(context.applicationContext) }
+    val source by store.coverSource(packageName).collectAsStateWithLifecycle(initialValue = null)
+    val thumbnail = rememberCoverBitmap(source, store)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(DiscnctShapes.pill)
+            .border(1.dp, colors.borderVisible, DiscnctShapes.pill)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (thumbnail != null) {
+            Image(
+                bitmap = thumbnail,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(26.dp).clip(DiscnctShapes.technical),
+            )
+        }
+        Text(
+            text = "CHANGE IMAGE",
+            style = DiscnctType.caption,
+            color = colors.textPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        Text("›", style = DiscnctType.subheading, color = colors.textSecondary)
     }
 }
 
