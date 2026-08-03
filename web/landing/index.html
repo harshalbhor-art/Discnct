@@ -200,8 +200,8 @@ h2{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:32px;letter-
 /* ---------- download ---------- */
 .download-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap;}
 .download-card .meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-secondary);margin-top:10px;}
-.install-help{margin-top:20px;display:grid;grid-template-columns:repeat(2,1fr);gap:20px;}
-@media (max-width:800px){.install-help{grid-template-columns:1fr;}}
+.install-help{margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+@media (max-width:1000px){.install-help{grid-template-columns:1fr;}}
 .help-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
 .help-card h4{margin:0 0 12px;font-size:15px;color:var(--text-display);}
 .help-card p{margin:0 0 11px;font-size:13.5px;line-height:1.65;color:var(--text-secondary);}
@@ -651,8 +651,8 @@ footer a:hover{color:var(--text-primary);}
       <h2>Not on the Play Store — installed directly.</h2>
       <p class="section-lead">
         Discnct is sideloaded on purpose: no store review delay, no tracking SDKs a store
-        would require. Android will ask you to allow installs from this source — that is the
-        only setting you need to change.
+        would require. That also means Android will push back on the way in. Every wall you
+        can hit is below, with the actual way through each one.
       </p>
       <div class="download-card">
         <div>
@@ -662,26 +662,53 @@ footer a:hover{color:var(--text-primary);}
         <a class="btn btn-primary btn-lg" id="download-card-btn" href="#">Download APK</a>
       </div>
 
-      <!-- The two things that actually stop a sideloaded install. Both send people hunting
-           through Settings for a switch to flip, and in both cases the switch is the wrong
-           one — hence spelling out the real step rather than just naming the symptom. -->
+      <!-- The three things that actually stop a sideloaded install. Each one sends people
+           hunting through Settings for a switch, and the obvious switch is usually the wrong
+           one — hence spelling out the real step rather than just naming the symptom. The
+           Play Protect card says plainly that scanning has to come off; anything softer than
+           that is a lie people discover thirty seconds later. -->
       <div class="install-help">
+        <div class="help-card">
+          <h4>Play&nbsp;Protect refuses to install it</h4>
+          <p>
+            Discnct needs the <b>Accessibility</b> permission to see that you've opened Reels —
+            the same permission spyware asks for. Play&nbsp;Protect can't tell the two apart, so
+            it blocks the install. Often there is no <b>Install&nbsp;anyway</b> to tap.
+          </p>
+          <p>
+            The only way past it is to turn scanning off for a minute:
+          </p>
+          <p class="path">
+            Play&nbsp;Store › your profile picture › Play&nbsp;Protect › ⚙ ›<br>
+            “Scan apps with Play&nbsp;Protect” → off
+          </p>
+          <p>
+            Install Discnct, then <b>turn it straight back on</b>. It may offer to remove Discnct
+            when you do — decline, and it will leave the app alone.
+          </p>
+          <p>
+            Turning off a security scanner is a real thing to ask, so don't take our word for
+            anything: the whole app is source-available, and the permissions it declares are in
+            plain sight in the manifest.
+          </p>
+        </div>
         <div class="help-card">
           <h4>“Blocked by work policy”</h4>
           <p>
-            That comes from your employer's or school's device management, not from Discnct.
-            An admin has locked Play&nbsp;Protect, and nothing on the phone can unlock it.
+            That comes from your employer's or school's device management, not from Discnct. An
+            admin has locked the Play&nbsp;Protect toggle, so the steps on the left stop at the
+            first one.
           </p>
           <p>
-            <b>You don't need to.</b> Changing Play&nbsp;Protect was never part of installing
-            Discnct. When it flags an app it doesn't recognise, the warning itself has the way
-            through: tap <b>More details</b>, then <b>Install anyway</b>.
+            Usually this is on a personal phone that merely has a work Google account signed in.
+            <b>Remove that account</b>, install Discnct, then sign back in. If the phone has a work
+            profile — the apps with a little briefcase — install on the personal side, using your
+            personal browser rather than the work one.
           </p>
           <p>
-            If your phone has a work profile — the apps with a little briefcase on them — install
-            Discnct on the personal side, using your personal browser rather than the work one.
-            If the whole phone is company-managed, Discnct can't run on it: an admin can withhold
-            the Accessibility permission it needs. Use a personal phone for this one.
+            If the phone is genuinely company-managed, this is a dead end: an admin can withhold
+            the Accessibility permission too, so Discnct wouldn't run even once installed. Use a
+            personal phone for this one.
           </p>
         </div>
         <div class="help-card">
