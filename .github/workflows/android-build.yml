@@ -52,11 +52,20 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      # Whether the upload keystore is in repo secrets, as a step output rather than a direct
+      # `secrets.*` reference — GitHub Actions rejects secrets used straight inside an `if:`
+      # condition, so the check has to happen in a run: step first.
+      - name: Check for release signing secrets
+        id: keystore_check
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "present=$([ -n "$KEYSTORE_BASE64" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       # Signed .aab for Play Console uploads (Internal Testing and beyond). Only runs once the
       # upload keystore is in repo secrets — until then this step, and only this step, is skipped,
       # so the debug build above keeps working with no keystore present.
       - name: Build signed release bundle
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.present == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -73,7 +82,7 @@ jobs:
           ./gradlew :app:bundleRelease --stacktrace
 
       - name: Upload signed release bundle (Actions artifact)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: discnct-release-aab
