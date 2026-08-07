@@ -84,4 +84,9 @@ class SupportLinksTest {
         // The ID is never meant to reach a screen or a note — the pa= parameter is its only exit.
         assertEquals(1, upiPaymentUri(99).windowed(UPI_ID.length).count { it == UPI_ID })
     }
+
+    @Test fun `the coffee checkout url carries the amount as a query param`() {
+        assertEquals("$COFFEE_CHECKOUT_URL/?amount=99", coffeeCheckoutUri(99))
+        assertEquals("$COFFEE_CHECKOUT_URL/?amount=250000", coffeeCheckoutUri(250000))
+    }
 }

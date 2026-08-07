@@ -7,13 +7,12 @@ build:
   the three levels, the stats screens, the APK download, and a scan-to-pay support
   section at the bottom. `qr/` holds the pre-rendered UPI codes and the script that
   makes them.
-- **`coffee/`** — an unused Stripe Checkout flow. **The landing page no longer points
-  at it.** Support payments now go by UPI, handled entirely in `landing/index.html`
-  with no server involved, matching what the Android app does. This directory is kept
-  in case card payments are wanted later — nothing links to it, and it doesn't need
-  deploying.
+- **`coffee/`** — a Stripe Checkout flow for card payments. It's the fallback, not the
+  default: `SupportCard.kt`'s primary "Pay" button still fires a `upi://` intent with
+  no server involved, and this only gets used when someone taps "Pay by card" — the
+  amount is passed through as `?amount=` and preselected on the checkout page.
 
-Only `landing/` needs a Vercel project now.
+Both `landing/` and `coffee/` need a Vercel project.
 
 ## Screens on the landing page
 
@@ -81,22 +80,23 @@ The URI the QRs encode must stay byte-identical to what the app builds in
 `SupportLinks.kt` — two decimals on the amount, `@` unencoded, `%20` not `+` in the
 note. `generate.py` repeats those rules and says why.
 
-## Deploying `coffee/` (optional, currently unused)
+## Deploying `coffee/`
 
 1. New Vercel project → import this repo.
 2. Set **Root Directory** to `web/coffee`.
 3. Framework preset: **Next.js** (auto-detected).
-4. Add environment variables (Project Settings → Environment Variables):
+4. Add environment variables (Project Settings → Environment Variables) — **set these
+   in the Vercel dashboard directly, never paste a Stripe secret key into a chat, a
+   commit, or a client-side file**:
 
    | Name | Value | Notes |
    |---|---|---|
    | `STRIPE_SECRET_KEY` | `sk_test_...` | From the [Stripe dashboard](https://dashboard.stripe.com/apikeys). Start in **test mode** — test-mode keys and live-mode keys are both valid `sk_...` values, Stripe just routes them differently. Switch to a live key only when ready to accept real payments. |
    | `NEXT_PUBLIC_LANDING_URL` | e.g. `https://discnct.vercel.app` | Optional. Where the "back to Discnct" link on the success/cancel pages points. Defaults to the GitHub repo if unset. |
 
-5. Deploy.
-6. Point something at it. Nothing does today: the landing page pays by UPI, and
-   `SupportCard.kt` in the Android app fires a `upi://` intent rather than opening a
-   web checkout.
+5. Deploy. The production URL needs to be `https://discnct-coffee.vercel.app` (or
+   `COFFEE_CHECKOUT_URL` in `SupportLinks.kt` needs updating to match) — that's the
+   URL `SupportCard.kt`'s "Pay by card" button opens.
 
 ### Testing a payment end-to-end
 

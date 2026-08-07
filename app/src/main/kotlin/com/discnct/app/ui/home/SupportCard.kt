@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.discnct.app.support.coffeeCheckoutUri
 import com.discnct.app.support.upiPaymentUri
 import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.Chip
@@ -50,7 +51,9 @@ private val PRESET_AMOUNTS = listOf(49, 99, 199, 499)
  * "Buy us a Coffee" — the pay-what-you-like block under the three levels.
  *
  * Tapping "Pay" hands the chosen amount to whichever UPI app the user picks from the system
- * chooser. Discnct's involvement ends there, deliberately:
+ * chooser — the default, since it settles instantly with no cut taken. "Pay by card" is the
+ * fallback for anyone without a UPI app: it opens the Stripe Checkout page in a browser instead.
+ * Discnct's involvement ends there either way, deliberately:
  *
  *  * **Nothing is verified.** There is no backend to verify against. The "Thank you" appears
  *    because the user came back, not because money moved — a cancelled payment gets the same
@@ -138,6 +141,27 @@ fun SupportCard(modifier: Modifier = Modifier) {
                     }
                 }
             },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Opens your UPI app. No fees, nothing verified, nothing unlocked.",
+            style = DiscnctType.label,
+            color = colors.textDisabled,
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        PillButton(
+            label = "Pay by card",
+            onClick = {
+                val checkout = Intent(Intent.ACTION_VIEW, Uri.parse(coffeeCheckoutUri(amount)))
+                try {
+                    context.startActivity(checkout)
+                } catch (_: ActivityNotFoundException) {
+                    scope.launch { snackbars.showSnackbar("No browser found") }
+                }
+            },
+            variant = ButtonVariant.Secondary,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(8.dp))

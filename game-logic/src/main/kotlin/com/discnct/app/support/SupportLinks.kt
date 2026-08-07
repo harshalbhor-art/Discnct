@@ -89,3 +89,15 @@ private fun upiEncode(value: String): String = buildString {
 
 private fun Char.isSafeInUpiQuery(): Boolean =
     this in 'A'..'Z' || this in 'a'..'z' || this in '0'..'9' || this in "-._~@"
+
+/**
+ * Where "Pay by card" sends a browser for someone without a UPI app.
+ *
+ * Public, unlike [UPI_ID] above — this is a page URL, not a payee address, so there's nothing to
+ * guard against being shown on screen. `web/coffee` reads the same `amount` query param back out
+ * to preselect it in Stripe Checkout.
+ */
+const val COFFEE_CHECKOUT_URL = "https://discnct-coffee.vercel.app"
+
+/** Build the "Pay by card" URL for [rupees], preselecting the amount on the checkout page. */
+fun coffeeCheckoutUri(rupees: Int): String = "$COFFEE_CHECKOUT_URL/?amount=$rupees"
