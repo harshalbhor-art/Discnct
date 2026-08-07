@@ -20,6 +20,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.discnct.app.paywall.PaywallScreen
+import com.discnct.app.paywall.PaywallViewModel
 import com.discnct.app.ui.applist.AllowedAppsScreen
 import com.discnct.app.ui.applist.AppBlockerScreen
 import com.discnct.app.ui.applist.CoverImageScreen
@@ -63,6 +66,9 @@ class MainActivity : ComponentActivity() {
         data object AllowedApps : Screen
         data object FinancialApps : Screen
         data object Permissions : Screen
+
+        /** Shown instead of [target] once its Level 2+ trial has run out and nothing's unlocked it. */
+        data class Paywall(val target: Section) : Screen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +90,11 @@ class MainActivity : ComponentActivity() {
                 // Start "seen = true" so returning users never get a flash of the popup before the
                 // stored value loads; a genuine first run flips it false a tick later and shows it.
                 val welcomeSeen by firstRunStore.welcomeSeen.collectAsStateWithLifecycle(initialValue = true)
+
+                // One shared instance so the trial-gate check on Home and the paywall screen itself
+                // never disagree about unlock state.
+                val paywallViewModel: PaywallViewModel = viewModel()
+                val paywallState by paywallViewModel.uiState.collectAsStateWithLifecycle()
 
                 var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
@@ -114,10 +125,19 @@ class MainActivity : ComponentActivity() {
                                     when (screen) {
                                         Screen.Home -> HomeScreen(
                                             onOpenSection = { section ->
-                                                screen = when (section) {
+                                                val destination = when (section) {
                                                     Section.ReelBlocker -> Screen.ReelBlocker
                                                     Section.AppBlockerGames -> Screen.AppBlocker
                                                     Section.TotalDisconnect -> Screen.TotalDisconnect
+                                                }
+                                                screen = if (section == Section.ReelBlocker) {
+                                                    destination
+                                                } else {
+                                                    // Starting the trial here, not on the paywall screen, means
+                                                    // the very first Level 2+ open always gets straight in — the
+                                                    // clock starts at this tap, so nothing's expired yet.
+                                                    paywallViewModel.startTrialIfNeeded()
+                                                    if (paywallState.isUnlocked) destination else Screen.Paywall(section)
                                                 }
                                             },
                                             onOpenPermissions = { screen = Screen.Permissions },
@@ -166,6 +186,25 @@ class MainActivity : ComponentActivity() {
                                 Screen.AllowedApps -> AllowedAppsScreen(onBack = { screen = Screen.TotalDisconnect })
                                 Screen.FinancialApps -> FinancialAppsScreen(onBack = { screen = Screen.Settings })
                                 Screen.Permissions -> OnboardingScreen(onComplete = { screen = Screen.Home })
+                                is Screen.Paywall -> {
+                                    val target = (screen as Screen.Paywall).target
+                                    PaywallScreen(
+                                        levelName = if (target == Section.AppBlockerGames) {
+                                            "App Blocker + Games"
+                                        } else {
+                                            "Total Disconnect"
+                                        },
+                                        onBack = { screen = Screen.Home },
+                                        onUnlocked = {
+                                            screen = if (target == Section.AppBlockerGames) {
+                                                Screen.AppBlocker
+                                            } else {
+                                                Screen.TotalDisconnect
+                                            }
+                                        },
+                                        viewModel = paywallViewModel,
+                                    )
+                                }
                                 else -> Unit
                             }
                         }
