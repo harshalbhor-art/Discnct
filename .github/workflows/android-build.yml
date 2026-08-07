@@ -52,6 +52,34 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      # Signed .aab for Play Console uploads (Internal Testing and beyond). Only runs once the
+      # upload keystore is in repo secrets — until then this step, and only this step, is skipped,
+      # so the debug build above keeps working with no keystore present.
+      - name: Build signed release bundle
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > discnct-upload.jks
+          {
+            echo "storeFile=discnct-upload.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > keystore.properties
+          ./gradlew :app:bundleRelease --stacktrace
+
+      - name: Upload signed release bundle (Actions artifact)
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: discnct-release-aab
+          path: app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+
       # Publish the APK to a single rolling "debug" pre-release so it has a
       # stable, direct download link that installs straight from a phone
       # browser — no GitHub login or zip-unpacking needed. Push builds only
