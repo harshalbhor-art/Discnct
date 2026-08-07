@@ -95,7 +95,7 @@ private fun Char.isSafeInUpiQuery(): Boolean =
  *
  * Public, unlike [UPI_ID] above — this is a page URL, not a payee address, so there's nothing to
  * guard against being shown on screen. `web/coffee` reads the same `amount` query param back out
- * to preselect it in Stripe Checkout.
+ * to preselect it in Razorpay Checkout.
  */
 const val COFFEE_CHECKOUT_URL = "https://discnct-coffee.vercel.app"
 

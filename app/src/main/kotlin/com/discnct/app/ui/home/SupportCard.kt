@@ -52,7 +52,7 @@ private val PRESET_AMOUNTS = listOf(49, 99, 199, 499)
  *
  * Tapping "Pay" hands the chosen amount to whichever UPI app the user picks from the system
  * chooser — the default, since it settles instantly with no cut taken. "Pay by card" is the
- * fallback for anyone without a UPI app: it opens the Stripe Checkout page in a browser instead.
+ * fallback for anyone without a UPI app: it opens the Razorpay Checkout page in a browser instead.
  * Discnct's involvement ends there either way, deliberately:
  *
  *  * **Nothing is verified.** There is no backend to verify against. The "Thank you" appears
@@ -166,7 +166,7 @@ fun SupportCard(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Opens Stripe Checkout in your browser — card details never touch this app.",
+            text = "Opens Razorpay Checkout in your browser — card details never touch this app.",
             style = DiscnctType.label,
             color = colors.textDisabled,
         )

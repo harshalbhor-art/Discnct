@@ -89,11 +89,11 @@ export default function Home() {
           {error && <p className="error">{error}</p>}
 
           <button type="button" className="pay" onClick={checkout} disabled={loading}>
-            {loading ? 'Redirecting…' : `Pay ₹${effectiveAmount || 0} via Stripe`}
+            {loading ? 'Redirecting…' : `Pay ₹${effectiveAmount || 0} via Razorpay`}
           </button>
 
           <p className="fine">
-            Payments are handled entirely by Stripe — we never see or store your card details.
+            Payments are handled entirely by Razorpay — we never see or store your card details.
           </p>
         </div>
       </main>
