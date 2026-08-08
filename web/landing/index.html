@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Discnct — escalating resistance between you and the scroll</title>
+<meta name="description" content="Discnct is a free, native Android app that fights reel and social-media addiction in three escalating levels: bounce out of Reels, block whole apps behind a game, or replace your home screen entirely." />
+
+<!-- Config: the APK link. The UPI payee isn't a meta tag — it's a constant in the script at the
+     bottom, used only to build the upi:// button link, and is never rendered on the page. -->
+<meta name="discnct-apk-url" content="https://github.com/harshalbhor-art/Discnct/releases/download/debug/discnct-debug-v0.1.0.apk" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='16' fill='%23D71921'/%3E%3C/svg%3E" />
+
+<script>
+  // Runs before first paint so a saved theme applies with no flash of the other one.
+  (function () {
+    var saved = localStorage.getItem('discnct-theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+
+<style>
+:root{
+  --black:#08080a; --surface:#111111; --surface-raised:#1a1a1a;
+  --border:#222222; --border-visible:#333333;
+  --text-disabled:#666666; --text-secondary:#999999; --text-primary:#e8e8e8; --text-display:#ffffff;
+  --accent:#d71921; --accent-subtle:rgba(215,25,33,.15);
+  --success:#4a9e5c; --warning:#d4a843; --interactive:#5b9bf6;
+  --header-bg:rgba(8,8,10,.85);
+  --radius:12px;
+  color-scheme:dark;
+}
+/* Dark is the default regardless of system preference; light is opt-in via the toggle. */
+:root[data-theme="light"]{
+  --black:#f5f5f5; --surface:#ffffff; --surface-raised:#f0f0f0;
+  --border:#e8e8e8; --border-visible:#cccccc;
+  --text-disabled:#999999; --text-secondary:#666666; --text-primary:#1a1a1a; --text-display:#000000;
+  --header-bg:rgba(245,245,245,.85);
+  color-scheme:light;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--black); color:var(--text-primary);
+  font-family:'Space Grotesk',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  font-size:16px; line-height:1.55; overflow-x:hidden;
+}
+a{color:inherit;}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px;}
+
+/* ---------- nav ---------- */
+header{position:sticky;top:0;z-index:20;background:var(--header-bg);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);}
+nav.wrap{display:flex;align-items:center;justify-content:space-between;height:64px;}
+.nav-actions{display:flex;align-items:center;gap:10px;}
+.theme-toggle{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;padding:0;border-radius:50%;
+  background:transparent;border:1px solid var(--border-visible);color:var(--text-secondary);
+  cursor:pointer;transition:color .15s,border-color .15s;
+}
+.theme-toggle:hover{color:var(--text-primary);border-color:var(--text-secondary);}
+.theme-toggle svg{width:17px;height:17px;}
+/* Show the icon for the theme you'd switch *to*: sun while dark, moon while light. */
+.theme-toggle .icon-moon{display:none;}
+:root[data-theme="light"] .theme-toggle .icon-moon{display:block;}
+:root[data-theme="light"] .theme-toggle .icon-sun{display:none;}
+.brand{display:flex;align-items:center;gap:8px;font-family:'Doto',sans-serif;font-weight:700;font-size:20px;color:var(--text-display);}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.navlinks{display:flex;gap:28px;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary);}
+.navlinks a{text-decoration:none;transition:color .15s;}
+.navlinks a:hover{color:var(--text-primary);}
+@media (max-width:860px){.navlinks{display:none;}}
+
+/* ---------- buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.04em;font-weight:700;
+  padding:14px 26px;border-radius:999px;border:1px solid transparent;cursor:pointer;
+  text-decoration:none;transition:transform .12s ease,opacity .12s ease;
+}
+.btn:hover{transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{opacity:.92;}
+.btn-ghost{background:transparent;border-color:var(--border-visible);color:var(--text-primary);}
+.btn-ghost:hover{border-color:var(--text-secondary);}
+.btn-lg{padding:17px 34px;font-size:14px;}
+
+/* ---------- hero ---------- */
+.hero{padding-top:88px;padding-bottom:80px;display:grid;grid-template-columns:1fr 300px;gap:56px;align-items:center;}
+.hero-copy{max-width:600px;}
+.tag{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:20px;}
+h1.display{font-family:'Doto',sans-serif;font-weight:700;font-size:52px;line-height:1.04;letter-spacing:-.02em;color:var(--text-display);margin:0 0 22px;}
+h1.display .accent{color:var(--accent);}
+.hero-sub{margin:0 0 36px;color:var(--text-secondary);font-size:18px;}
+.hero-sub strong{display:block;color:var(--text-display);font-weight:700;margin-bottom:8px;}
+.hero-ctas{display:flex;gap:14px;flex-wrap:wrap;}
+@media (max-width:860px){
+  .hero{grid-template-columns:1fr;text-align:center;padding-top:64px;}
+  .hero-copy{margin:0 auto;}
+  .hero-ctas{justify-content:center;}
+}
+
+/* ---------- section shell ---------- */
+section{padding:88px 0;border-top:1px solid var(--border);}
+.eyebrow{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 12px;}
+h2{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:32px;letter-spacing:-.01em;color:var(--text-display);margin:0 0 18px;}
+.section-lead{max-width:620px;color:var(--text-secondary);font-size:17px;margin:0 0 48px;}
+
+/* ---------- philosophy ---------- */
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
+@media (max-width:800px){.principles{grid-template-columns:1fr;}}
+.principle{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
+.principle .num{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-disabled);margin-bottom:10px;}
+.principle h3{font-size:17px;margin:0 0 10px;color:var(--text-display);}
+.principle p{font-size:14px;color:var(--text-secondary);margin:0;}
+
+/* ---------- levels ---------- */
+.level{display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center;padding:52px 0;border-top:1px solid var(--border);}
+.level:first-of-type{border-top:none;}
+@media (max-width:860px){.level{grid-template-columns:1fr;}}
+.level-copy .level-num{font-family:'Doto',sans-serif;font-weight:700;font-size:15px;color:var(--accent);}
+.level-copy h3{font-family:'Space Grotesk',sans-serif;font-size:26px;margin:6px 0 14px;color:var(--text-display);display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.level-copy p{color:var(--text-secondary);font-size:15px;max-width:460px;}
+.wip{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;color:var(--text-disabled);border:1px solid var(--border-visible);border-radius:999px;padding:3px 9px;}
+
+/* ---------- phone frame ---------- */
+/* The screens below are rebuilt from the real app rather than photographed, so they stay sharp at
+   any size, follow this page's own light/dark toggle, and cost nothing to download. */
+.phone{width:300px;margin:0 auto;background:linear-gradient(160deg,#26262b,#101013 60%);border-radius:34px;padding:8px;box-shadow:0 30px 60px -20px rgba(0,0,0,.6);}
+.phone-screen{border-radius:27px;background:#0a0a0c;overflow:hidden;position:relative;display:flex;flex-direction:column;height:580px;color:#e8e8e8;}
+.phone-status{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;font-size:10px;color:#c8c8c8;font-family:'Space Grotesk',sans-serif;}
+.phone-status .sig{letter-spacing:2px;font-size:8px;color:#9a9a9a;}
+.phone-body{flex:1;padding:0 14px;overflow:hidden;display:flex;flex-direction:column;gap:9px;}
+.phone-fade{position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(to top,#0a0a0c,transparent);pointer-events:none;}
+.phone-nav{position:absolute;left:0;right:0;bottom:0;height:38px;background:#141416;border-top:1px solid #222;display:flex;align-items:center;justify-content:space-around;font-size:12px;color:#666;}
+.phone-nav .on{color:#fff;}
+
+/* ---------- in-phone atoms ---------- */
+.mk-title{font-family:'Doto',sans-serif;font-weight:700;font-size:24px;color:#fff;letter-spacing:1px;}
+.mk-head{display:flex;align-items:center;justify-content:space-between;padding-top:6px;}
+.mk-pill{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.1em;border:1px solid #444;border-radius:999px;padding:4px 10px;color:#ddd;}
+.mk-lead{font-size:9.5px;line-height:1.5;color:#9a9a9a;margin:0;}
+.mk-back{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.14em;color:#888;padding-top:4px;}
+.mk-h2{font-size:16px;color:#fff;font-weight:500;display:flex;justify-content:space-between;align-items:center;}
+.mk-eyebrow{font-family:'Space Mono',monospace;font-size:7.5px;letter-spacing:.16em;color:#777;text-transform:uppercase;}
+.mk-card{background:#141416;border:1px solid #232326;border-radius:10px;padding:11px 12px;}
+.mk-lvl{display:flex;gap:10px;align-items:flex-start;}
+.mk-lvl .n{font-family:'Space Mono',monospace;font-size:8px;color:#555;padding-top:3px;}
+.mk-lvl h4{margin:0 0 3px;font-size:12px;color:#fff;font-weight:500;display:flex;gap:6px;align-items:center;}
+.mk-lvl p{margin:0;font-size:8.5px;line-height:1.45;color:#8e8e8e;}
+.mk-lvl .arw{margin-left:auto;color:#666;font-size:11px;align-self:center;}
+.mk-tag{font-family:'Space Mono',monospace;font-size:6.5px;letter-spacing:.1em;color:#777;border:1px solid #3a3a3a;border-radius:999px;padding:2px 6px;}
+/* toggle */
+.mk-tg{width:30px;height:17px;border-radius:999px;background:#fff;position:relative;flex:none;}
+.mk-tg::after{content:"";position:absolute;top:2.5px;right:2.5px;width:12px;height:12px;border-radius:50%;background:#111;}
+.mk-tg.off{background:#333;}
+.mk-tg.off::after{left:2.5px;right:auto;background:#777;}
+/* rows */
+.mk-row{display:flex;align-items:center;gap:9px;}
+.mk-row .grow{flex:1;min-width:0;}
+.mk-row .nm{font-size:11px;color:#fff;}
+.mk-row .sub{font-family:'Space Mono',monospace;font-size:7.5px;color:#8a8a8a;margin-top:1px;}
+.mk-row .sub.red{color:var(--accent);}
+.mk-try{font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.1em;border:1px solid #444;border-radius:999px;padding:4px 9px;color:#ccc;flex:none;}
+.mk-icon{width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+.mk-sep{height:1px;background:#1e1e21;}
+/* stats */
+.mk-big{font-family:'Doto',sans-serif;font-weight:700;font-size:30px;color:#fff;line-height:1;}
+.mk-big.red{color:var(--accent);}
+.mk-unit{font-size:11px;color:#fff;margin-left:3px;}
+.mk-split{display:flex;gap:18px;}
+.mk-split .k{font-size:15px;color:#fff;}
+.mk-split .l{font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.12em;color:#777;}
+.mk-prog{display:flex;gap:3px;margin-top:4px;}
+.mk-prog i{height:4px;flex:1;background:#2a2a2d;border-radius:1px;}
+.mk-prog i.on{background:#fff;}
+.mk-bars{display:flex;align-items:flex-end;gap:6px;height:76px;}
+.mk-bars b{flex:1;background:#fff;border-radius:2px;display:block;}
+.mk-bars b.red{background:var(--accent);}
+.mk-days{display:flex;gap:6px;font-family:'Space Mono',monospace;font-size:7px;color:#777;}
+.mk-days span{flex:1;text-align:center;}
+.mk-days span.red{color:var(--accent);}
+.mk-seg{display:flex;background:#141416;border:1px solid #232326;border-radius:999px;padding:3px;}
+.mk-seg div{flex:1;text-align:center;font-family:'Space Mono',monospace;font-size:8px;padding:5px;border-radius:999px;color:#888;}
+.mk-seg div.on{background:#fff;color:#111;}
+
+/* ---------- screens gallery ---------- */
+.shots{display:grid;grid-template-columns:repeat(2,1fr);gap:40px;align-items:start;}
+@media (max-width:860px){.shots{grid-template-columns:1fr;}}
+.shot-cap{text-align:center;margin-top:18px;}
+.shot-cap h4{margin:0 0 4px;font-size:16px;color:var(--text-display);}
+.shot-cap p{margin:0;font-size:13px;color:var(--text-secondary);}
+
+/* ---------- download ---------- */
+.download-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;display:flex;justify-content:space-between;align-items:center;gap:32px;flex-wrap:wrap;}
+.download-card .meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-secondary);margin-top:10px;}
+.install-help{margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+@media (max-width:1000px){.install-help{grid-template-columns:1fr;}}
+.help-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:26px;}
+.help-card h4{margin:0 0 12px;font-size:15px;color:var(--text-display);}
+.help-card p{margin:0 0 11px;font-size:13.5px;line-height:1.65;color:var(--text-secondary);}
+.help-card p:last-child{margin-bottom:0;}
+.help-card b{color:var(--text-primary);font-weight:500;}
+.help-card .path{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-primary);}
+
+/* ---------- support / scan to pay ---------- */
+.pay-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:40px;
+  display:grid;grid-template-columns:1fr 300px;gap:48px;align-items:center;text-align:left;
+}
+@media (max-width:800px){
+  .pay-card{grid-template-columns:1fr;gap:32px;text-align:center;justify-items:center;}
+}
+.pay-card p{color:var(--text-secondary);margin-top:0;}
+.amounts{display:flex;gap:9px;flex-wrap:wrap;margin:24px 0 22px;}
+@media (max-width:800px){.amounts{justify-content:center;}}
+.amt{
+  font-family:'Space Mono',monospace;font-size:14px;padding:10px 18px;border-radius:999px;
+  border:1px solid var(--border-visible);background:transparent;color:var(--text-secondary);cursor:pointer;
+  transition:border-color .15s,color .15s;
+}
+.amt:hover{color:var(--text-primary);}
+.amt[aria-pressed="true"]{border-color:var(--text-display);color:var(--text-display);}
+/* The QR is always dark-on-white whatever the page theme is doing — a scanner needs the
+   contrast the spec assumes, and an inverted QR fails on a fair number of phones. */
+.qr-card{background:#fff;border-radius:18px;padding:16px;width:100%;max-width:300px;box-shadow:0 24px 50px -24px rgba(0,0,0,.55);}
+.qr-card img{display:block;width:100%;height:auto;}
+.qr-side{display:flex;flex-direction:column;align-items:center;}
+.qr-meta{font-family:'Space Mono',monospace;font-size:13px;color:var(--text-primary);margin:18px 0 0;text-align:center;}
+.qr-meta .big{font-size:20px;color:var(--text-display);}
+.qr-sub{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);margin:6px 0 0;text-align:center;}
+.fineprint{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);margin-top:20px;line-height:1.7;}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--border);padding:36px 0;}
+footer .wrap{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+footer .fine{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-disabled);}
+footer a{text-decoration:none;color:var(--text-secondary);font-size:13px;}
+footer a:hover{color:var(--text-primary);}
+
+/* ---------- mobile ---------- */
+@media (max-width:640px){
+  .wrap{padding:0 28px;}
+  h1.display{font-size:30px;}
+  .tag{font-size:10px;letter-spacing:.1em;}
+  .hero{padding-bottom:56px;gap:40px;}
+  .hero-sub{font-size:16px;}
+  section{padding:64px 0;}
+  h2{font-size:26px;}
+  .section-lead{font-size:16px;margin-bottom:36px;}
+  .principle,.download-card,.pay-card{padding:24px;}
+  .level{padding:36px 0;gap:32px;}
+  /* A 300px frame plus 28px gutters each side needs 356px; scale down under that. */
+  .phone{width:270px;}
+  .phone-screen{height:530px;}
+  .shots{gap:32px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <div class="brand"><span class="dot"></span>DISCNCT</div>
+    <div class="navlinks">
+      <a href="#philosophy">Philosophy</a>
+      <a href="#levels">How it works</a>
+      <a href="#stats">Stats</a>
+      <a href="#download">Download</a>
+      <a href="#support">Support</a>
+    </div>
+    <div class="nav-actions">
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+        </svg>
+      </button>
+      <a class="btn btn-ghost" id="nav-download" href="#">Download</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="hero wrap" style="border-top:none;">
+    <div class="hero-copy">
+      <div class="tag">Free · Native Android · No ads · No data sold</div>
+      <h1 class="display">Escalating resistance<br/>between you and <span class="accent">the scroll</span>.</h1>
+      <p class="hero-sub">
+        <strong>Take back control of your scroll.</strong>
+        Short-form videos are designed to trap you. Discnct helps you break free; without
+        forcing you into all-or-nothing.
+      </p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary btn-lg" id="hero-download" href="#">Download APK</a>
+        <a class="btn btn-ghost btn-lg" href="#levels">See how it works</a>
+      </div>
+    </div>
+
+    <!-- Screen 1 — Home -->
+    <div class="phone" aria-label="Discnct home screen">
+      <div class="phone-screen">
+        <div class="phone-status"><span>6:11</span><span class="sig">▮▮▮ ▮▮</span></div>
+        <div class="phone-body">
+          <div class="mk-head">
+            <div class="mk-title">DISCNCT</div>
+            <div class="mk-pill">DARK</div>
+          </div>
+          <p class="mk-lead">Break the scroll. Kill just the Reels and Shorts — or go further and
+            block the apps that hook you outright.</p>
+          <div class="mk-card mk-lvl">
+            <span class="n">01</span>
+            <div class="grow"><h4>Reel Blocker</h4>
+              <p>Keep the app, block only its Reels and Shorts. Everything else still works.</p></div>
+            <span class="arw">›</span>
+          </div>
+          <div class="mk-card mk-lvl">
+            <span class="n">02</span>
+            <div class="grow"><h4>App Blocker + Games</h4>
+              <p>Block whole apps. Hold to unlock, or win a game to earn a few minutes back.</p></div>
+            <span class="arw">›</span>
+          </div>
+          <div class="mk-card mk-lvl">
+            <span class="n">03</span>
+            <div class="grow"><h4>Total Disconnect <span class="mk-tag">WIP</span></h4>
+              <p>Blocked apps, plus a home screen stripped back to the handful you allow.</p></div>
+            <span class="arw">›</span>
+          </div>
+          <div class="mk-eyebrow" style="margin-top:4px;">Support</div>
+          <div class="mk-card">
+            <h4 style="margin:0 0 4px;font-size:12px;color:#fff;font-weight:500;">Buy us a Coffee</h4>
+            <p style="margin:0 0 9px;font-size:8.5px;line-height:1.45;color:#8e8e8e;">Discnct is free,
+              and it stays free. Pay whatever that evening was worth to you.</p>
+            <div style="display:flex;gap:5px;">
+              <span class="mk-tag" style="border-color:#fff;color:#fff;">₹49</span>
+              <span class="mk-tag">₹99</span>
+              <span class="mk-tag">₹199</span>
+              <span class="mk-tag">₹499</span>
+            </div>
+          </div>
+        </div>
+        <div class="phone-fade"></div>
+        <div class="phone-nav"><span class="on">⌂</span><span>▯</span><span>⚙</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="philosophy">
+    <div class="wrap">
+      <p class="eyebrow">Philosophy</p>
+      <h2>Friction, not force.</h2>
+      <p class="section-lead">
+        Most blockers are a locked door: on or off, all or nothing, one password away from
+        defeat. Discnct is built on a different bet — that the right amount of resistance,
+        matched to how bad the habit is, works better than a wall you'll just tear down.
+      </p>
+      <div class="principles">
+        <div class="principle">
+          <div class="num">01</div>
+          <h3>You choose the level</h3>
+          <p>Start surgical. Escalate only when a lighter touch stops being enough — never
+            further than you need.</p>
+        </div>
+        <div class="principle">
+          <div class="num">02</div>
+          <h3>No dark patterns</h3>
+          <p>No streaks to protect, no guilt copy, no ads. It either helps you scroll less or
+            it doesn't — nothing else it's optimizing for.</p>
+        </div>
+        <div class="principle">
+          <div class="num">03</div>
+          <h3>Reversible, on purpose</h3>
+          <p>Every level can be turned back off. The goal is a habit you don't need the app
+            for anymore, not a cage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="levels">
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2>Three levels, escalating on purpose.</h2>
+      <p class="section-lead">
+        Each level is a complete, independent tool — turn on just the one that matches your
+        problem, or stack all three.
+      </p>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 01</div>
+          <h3>Reel Blocker</h3>
+          <p>Two switches per app. <strong>Reels &amp; Shorts</strong> bounces you straight back out
+            the moment a vertical feed opens — no block screen, nothing to dismiss.
+            <strong>Main feed cover</strong> puts a solid pane over the timeline and stories where
+            they sit. DMs, search, posting and profiles keep working either way. There's no way to
+            earn your way in: to get them back, you turn the switch off.</p>
+        </div>
+        <!-- Screen 2 — Reel Blocker -->
+        <div class="phone" aria-label="The Reel Blocker screen, with per-app switches">
+          <div class="phone-screen">
+            <div class="phone-status"><span>6:11</span><span class="sig">▮▮▮ ▮▮</span></div>
+            <div class="phone-body">
+              <div class="mk-back">‹ BACK</div>
+              <div class="mk-h2">Reel Blocker <span style="color:#888;font-size:12px;">⌕</span></div>
+              <p class="mk-lead">Take out the endless parts of an app and leave the rest working.
+                Reels and Shorts bounce you straight back to where you came from; a covered feed
+                goes behind a solid pane where it sits.</p>
+              <div class="mk-card mk-row">
+                <div class="grow">
+                  <div class="nm">Reel &amp; Shorts Blocker</div>
+                  <div class="sub">On — opening a Reels/Shorts feed bounces you back out.</div>
+                </div>
+                <span class="mk-tg"></span>
+              </div>
+              <div class="mk-eyebrow">Apps you can guard</div>
+              <div class="mk-row">
+                <span class="mk-icon" style="background:linear-gradient(135deg,#f9ce34,#ee2a7b 50%,#6228d7);">◉</span>
+                <span class="nm">Instagram</span>
+              </div>
+              <div class="mk-row" style="padding-left:31px;">
+                <div class="grow"><div class="nm">Reels &amp; Shorts</div>
+                  <div class="sub red">Bounced out of the viewer</div></div>
+                <span class="mk-tg"></span>
+              </div>
+              <div class="mk-row" style="padding-left:31px;">
+                <div class="grow"><div class="nm">Main feed cover</div>
+                  <div class="sub red">Timeline and stories covered over</div></div>
+                <span class="mk-tg"></span>
+              </div>
+              <div class="mk-sep"></div>
+              <div class="mk-row">
+                <span class="mk-icon" style="background:#1877f2;">f</span>
+                <span class="nm">Facebook</span>
+              </div>
+              <div class="mk-row" style="padding-left:31px;">
+                <div class="grow"><div class="nm">Reels &amp; Shorts</div>
+                  <div class="sub red">Bounced out of the viewer</div></div>
+                <span class="mk-tg"></span>
+              </div>
+              <div class="mk-sep"></div>
+              <div class="mk-row">
+                <span class="mk-icon" style="background:#ff0000;">▶</span>
+                <span class="nm">YouTube</span>
+              </div>
+            </div>
+            <div class="phone-fade"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 02</div>
+          <h3>App Blocker + Games</h3>
+          <p>Whole apps get shut behind a block screen. Hold a button for 30 seconds to earn five
+            minutes in, or beat one of <strong>nine mini-games</strong> to earn more — Wordle, 2048,
+            Minesweeper, Word Search, an endless runner, chess puzzles that now run up to mate in
+            three. Enough friction to make you ask "do I actually want this," not enough to be
+            un-openable in a real emergency. TRY any of them for free; a try never counts for
+            anything.</p>
+        </div>
+        <!-- Screen 3 — App Blocker + Games -->
+        <div class="phone" aria-label="The App Blocker screen listing the nine mini-games">
+          <div class="phone-screen">
+            <div class="phone-status"><span>6:12</span><span class="sig">▮▮▮ ▮▮</span></div>
+            <div class="phone-body">
+              <div class="mk-back">‹ BACK</div>
+              <div class="mk-h2">App Blocker + Games <span style="color:#888;font-size:12px;">⌕</span></div>
+              <p class="mk-lead">Apps you switch on here are blocked completely — the moment one
+                opens, Discnct covers it with the block screen.</p>
+              <div class="mk-eyebrow">Games on the block screen</div>
+              <div class="mk-card" style="padding:4px 12px;">
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Chess Puzzle</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Tic-Tac-Toe</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Minesweeper</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Wordle</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Word Search</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Dino Run</div><div class="sub">60s session</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">2048</div><div class="sub">Solve it to earn time</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Breathing</div><div class="sub">64s session</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+                <div class="mk-sep"></div>
+                <div class="mk-row" style="padding:7px 0;"><div class="grow"><div class="nm">Fidget Spinner</div><div class="sub">45s session</div></div><span class="mk-try">TRY</span><span class="mk-tg"></span></div>
+              </div>
+              <div class="mk-eyebrow">Apps to block completely</div>
+            </div>
+            <div class="phone-fade"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level">
+        <div class="level-copy">
+          <div class="level-num">LEVEL 03</div>
+          <h3>Total Disconnect <span class="wip">WIP</span></h3>
+          <p>Discnct replaces your home screen entirely, showing only a minimal grid of the
+            apps you've explicitly allowed through — essentials like phone, messages and
+            camera by default. Everything else still routes through the Level 2 block screen.
+            The nuclear option, for when the first two aren't enough. Still being built, and
+            marked as such inside the app.</p>
+        </div>
+        <div class="phone" aria-label="Total Disconnect, a restricted home screen">
+          <div class="phone-screen">
+            <div class="phone-status"><span>6:12</span><span class="sig">▮▮▮ ▮▮</span></div>
+            <div class="phone-body" style="justify-content:center;gap:16px;">
+              <div class="mk-eyebrow" style="text-align:center;">Discnct Home · Restricted</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:#777;font-size:13px;">☎</div>
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:#777;font-size:13px;">✉</div>
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:#777;font-size:13px;">◎</div>
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:#777;font-size:13px;">⏱</div>
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:#777;font-size:13px;">⚙</div>
+                <div class="mk-icon" style="width:100%;aspect-ratio:1;background:#1c1c20;border-radius:12px;color:var(--accent);font-size:13px;">●</div>
+              </div>
+              <p class="mk-lead" style="text-align:center;">Everything else routes through the
+                block screen.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stats">
+    <div class="wrap">
+      <p class="eyebrow">Stats</p>
+      <h2>What the blocking actually added up to.</h2>
+      <p class="section-lead">
+        Two numbers, kept honestly. The time you won back by playing for it, and the time that
+        still went somewhere — read from Android's own usage data, on your phone, and sent nowhere.
+      </p>
+
+      <div class="shots">
+        <div>
+          <!-- Screen 4 — Stats, game progress -->
+          <div class="phone" aria-label="Stats screen showing game progress">
+            <div class="phone-screen">
+              <div class="phone-status"><span>6:12</span><span class="sig">▮▮▮ ▮▮</span></div>
+              <div class="phone-body">
+                <div class="mk-title" style="padding-top:6px;">STATS</div>
+                <p class="mk-lead">What the blocking has added up to — the time you've won back from
+                  games, and where the rest of it still goes.</p>
+                <div class="mk-eyebrow">Game progress</div>
+                <div class="mk-card">
+                  <div style="display:flex;align-items:baseline;">
+                    <span class="mk-big red">9</span><span class="mk-unit">pts</span>
+                  </div>
+                  <p style="margin:8px 0 0;font-size:8.5px;line-height:1.45;color:#8e8e8e;">One point
+                    is one minute of app time you won back — 9m in total.</p>
+                  <div class="mk-sep" style="margin:11px 0;"></div>
+                  <div class="mk-split">
+                    <div><div class="k">4</div><div class="l">GAMES PLAYED</div></div>
+                    <div><div class="k">Dino Run</div><div class="l">MOST PLAYED</div></div>
+                  </div>
+                </div>
+                <div class="mk-card">
+                  <div class="mk-row"><span class="grow nm">Dino Run</span><span class="sub">2× · 2m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:9px;"><span class="grow nm">Tic-Tac-Toe</span><span class="sub">1× · 6m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:9px;"><span class="grow nm">Minesweeper</span><span class="sub">1× · 1m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:9px;"><span class="grow nm" style="color:#666;">2048</span><span class="sub">Never played</span></div>
+                  <div class="mk-prog"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:9px;"><span class="grow nm" style="color:#666;">Breathing</span><span class="sub">Never played</span></div>
+                  <div class="mk-prog"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                </div>
+              </div>
+              <div class="phone-fade"></div>
+              <div class="phone-nav"><span>⌂</span><span class="on">▮</span><span>⚙</span></div>
+            </div>
+          </div>
+          <div class="shot-cap">
+            <h4>Time you won back</h4>
+            <p>One point is one minute. Earned by beating a game, never bought.</p>
+          </div>
+        </div>
+
+        <div>
+          <!-- Screen 5 — Stats, screen time -->
+          <div class="phone" aria-label="Stats screen showing screen time">
+            <div class="phone-screen">
+              <div class="phone-status"><span>6:12</span><span class="sig">▮▮▮ ▮▮</span></div>
+              <div class="phone-body">
+                <div class="mk-eyebrow" style="padding-top:6px;">Screen time</div>
+                <div class="mk-seg"><div class="on">7 DAYS</div><div>4 WEEKS</div></div>
+                <div class="mk-card">
+                  <div style="display:flex;align-items:baseline;">
+                    <span class="mk-big">34</span><span class="mk-unit">h 51m</span>
+                  </div>
+                  <p style="margin:8px 0 0;font-size:8.5px;line-height:1.45;color:#8e8e8e;">Total
+                    across the last 7 days · 4h 58m a day on average.</p>
+                </div>
+                <div class="mk-card">
+                  <div class="mk-days" style="margin-bottom:6px;">
+                    <span>5h 9m</span><span>5h</span><span>5h 3m</span><span>3h</span><span>5h</span><span>6h</span><span class="red">3h</span>
+                  </div>
+                  <div class="mk-bars">
+                    <b style="height:78%"></b><b style="height:76%"></b><b style="height:77%"></b>
+                    <b style="height:46%"></b><b style="height:76%"></b><b style="height:92%"></b>
+                    <b class="red" style="height:46%"></b>
+                  </div>
+                  <div class="mk-days" style="margin-top:6px;">
+                    <span>S</span><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span class="red">F</span>
+                  </div>
+                </div>
+                <div class="mk-eyebrow">Where it went</div>
+                <div class="mk-card">
+                  <div class="mk-row"><span class="mk-icon" style="background:linear-gradient(135deg,#f9ce34,#ee2a7b 50%,#6228d7);width:16px;height:16px;font-size:8px;">◉</span><span class="grow nm">Instagram</span><span class="sub">10h 9m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:8px;"><span class="mk-icon" style="background:#25d366;width:16px;height:16px;font-size:8px;">✆</span><span class="grow nm">WhatsApp</span><span class="sub">9h 41m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:8px;"><span class="mk-icon" style="background:#ff0000;width:16px;height:16px;font-size:8px;">▶</span><span class="grow nm">YouTube</span><span class="sub">3h 15m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                  <div class="mk-row" style="margin-top:8px;"><span class="mk-icon" style="background:#34a853;width:16px;height:16px;font-size:8px;">◈</span><span class="grow nm">Maps</span><span class="sub">1h 52m</span></div>
+                  <div class="mk-prog"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                </div>
+              </div>
+              <div class="phone-fade"></div>
+              <div class="phone-nav"><span>⌂</span><span class="on">▮</span><span>⚙</span></div>
+            </div>
+          </div>
+          <div class="shot-cap">
+            <h4>Where the rest of it went</h4>
+            <p>Read from Android's usage data on the device. Nothing leaves the phone.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <p class="eyebrow">Get it</p>
+      <h2>Not on the Play Store — installed directly.</h2>
+      <p class="section-lead">
+        Discnct is sideloaded on purpose: no store review delay, no tracking SDKs a store
+        would require. That also means Android will push back on the way in. Every wall you
+        can hit is below, with the actual way through each one.
+      </p>
+      <div class="download-card">
+        <div>
+          <h3 style="margin:0 0 6px;color:var(--text-display);">Discnct for Android</h3>
+          <div class="meta">Android 8.0+ · Requires Accessibility + Usage Access permissions</div>
+        </div>
+        <a class="btn btn-primary btn-lg" id="download-card-btn" href="#">Download APK</a>
+      </div>
+
+      <!-- The three things that actually stop a sideloaded install. Each one sends people
+           hunting through Settings for a switch, and the obvious switch is usually the wrong
+           one — hence spelling out the real step rather than just naming the symptom. The
+           Play Protect card says plainly that scanning has to come off; anything softer than
+           that is a lie people discover thirty seconds later. -->
+      <div class="install-help">
+        <div class="help-card">
+          <h4>Play&nbsp;Protect refuses to install it</h4>
+          <p>
+            Discnct needs the <b>Accessibility</b> permission to see that you've opened Reels —
+            the same permission spyware asks for. Play&nbsp;Protect can't tell the two apart, so
+            it blocks the install. Often there is no <b>Install&nbsp;anyway</b> to tap.
+          </p>
+          <p>
+            The only way past it is to turn scanning off for a minute:
+          </p>
+          <p class="path">
+            Play&nbsp;Store › your profile picture › Play&nbsp;Protect › ⚙ ›<br>
+            “Scan apps with Play&nbsp;Protect” → off
+          </p>
+          <p>
+            Install Discnct, then <b>turn it straight back on</b>. It may offer to remove Discnct
+            when you do — decline, and it will leave the app alone.
+          </p>
+          <p>
+            Turning off a security scanner is a real thing to ask, so don't take our word for
+            anything: the whole app is source-available, and the permissions it declares are in
+            plain sight in the manifest.
+          </p>
+        </div>
+        <div class="help-card">
+          <h4>“Blocked by work policy”</h4>
+          <p>
+            That comes from your employer's or school's device management, not from Discnct. An
+            admin has locked the Play&nbsp;Protect toggle, so the steps on the left stop at the
+            first one.
+          </p>
+          <p>
+            Usually this is on a personal phone that merely has a work Google account signed in.
+            <b>Remove that account</b>, install Discnct, then sign back in. If the phone has a work
+            profile — the apps with a little briefcase — install on the personal side, using your
+            personal browser rather than the work one.
+          </p>
+          <p>
+            If the phone is genuinely company-managed, this is a dead end: an admin can withhold
+            the Accessibility permission too, so Discnct wouldn't run even once installed. Use a
+            personal phone for this one.
+          </p>
+        </div>
+        <div class="help-card">
+          <h4>The Accessibility switch is greyed out</h4>
+          <p>
+            Android labels it a <b>“Restricted setting”</b> for anything installed outside the Play
+            Store. Nothing is broken and Discnct isn't being denied — the switch just has to be
+            unlocked once, by hand.
+          </p>
+          <p class="path">
+            Settings › Apps › Discnct › ⋮ › Allow restricted settings
+          </p>
+          <p>
+            Then go back and turn Accessibility on. Discnct shows these same steps the first time
+            you open it, so there's nothing to memorise here.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="support">
+    <div class="wrap">
+      <p class="eyebrow">Support</p>
+      <!-- Same wording as the card on the app's home screen, so the two read as one thing. -->
+      <h2>Buy us a Coffee</h2>
+      <p class="section-lead">
+        Free, and staying that way. Discnct has no ads, no subscription, and doesn't sell your
+        data — which means it has no revenue model at all. If it's helped you scroll less, a
+        coffee helps keep it built.
+      </p>
+
+      <div class="pay-card">
+        <div>
+          <p>Pick an amount and scan the code with any UPI app — GPay, PhonePe, Paytm, your
+            bank's. The amount is already in the code, so you only confirm it.</p>
+
+          <div class="amounts" id="amounts" role="group" aria-label="Pick an amount">
+            <button class="amt" type="button" data-amt="49" aria-pressed="false">₹49</button>
+            <button class="amt" type="button" data-amt="99" aria-pressed="true">₹99</button>
+            <button class="amt" type="button" data-amt="199" aria-pressed="false">₹199</button>
+            <button class="amt" type="button" data-amt="499" aria-pressed="false">₹499</button>
+            <button class="amt" type="button" data-amt="any" aria-pressed="false">Any</button>
+          </div>
+
+          <!-- Reading this on the phone you'd pay with? You can't scan your own screen. -->
+          <a class="btn btn-primary" id="open-upi" href="#">Open a UPI app instead</a>
+
+          <p class="fineprint">
+            Nothing is unlocked by paying — no features, no entitlement, no record. There's no
+            server on our side, so we can't tell whether a payment went through and there's
+            nothing to refund against. Only send what you'd be happy never thinking about again.
+          </p>
+        </div>
+
+        <div class="qr-side">
+          <div class="qr-card">
+            <!-- Pre-rendered per amount, so no QR library ships to the browser. -->
+            <img id="qr" src="qr/upi-99.svg" alt="UPI QR code to pay Discnct"
+                 width="300" height="300" loading="lazy" />
+          </div>
+          <p class="qr-meta"><span class="big" id="qr-amount">₹99</span> to Discnct</p>
+          <p class="qr-sub" id="qr-note">Scan with your phone's camera or UPI app.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="fine">Discnct — built to be turned off the day you don't need it.</div>
+    <a href="https://github.com/harshalbhor-art/discnct" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</footer>
+
+<script>
+  // Config lives in the <meta> tag above so there's exactly one place to change it.
+  const apkUrl = document.querySelector('meta[name="discnct-apk-url"]').content;
+  for (const id of ['nav-download', 'hero-download', 'download-card-btn']) {
+    document.getElementById(id).href = apkUrl;
+  }
+
+  // Every amount has its own QR, rendered ahead of time by qr/generate.py, so picking one is
+  // just swapping an <img> — there's no encoder in the browser and nothing to get wrong at
+  // runtime. The payee below is never displayed; it exists only to build the upi:// link for
+  // the button, which is what a visitor reading this on their phone needs.
+  const UPI_ID = 'harsh.bhor007@okhdfcbank';
+
+  function upiUri(amt) {
+    const q = s => encodeURIComponent(s).replace(/%40/g, '@');
+    let uri = 'upi://pay?pa=' + q(UPI_ID) + '&pn=' + q('Discnct');
+    if (amt !== 'any') uri += '&am=' + amt + '.00';
+    return uri + '&cu=INR&tn=' + q('Discnct Support');
+  }
+
+  function selectAmount(amt) {
+    for (const b of document.querySelectorAll('.amt')) {
+      b.setAttribute('aria-pressed', String(b.dataset.amt === amt));
+    }
+    document.getElementById('qr').src = 'qr/upi-' + amt + '.svg';
+    document.getElementById('qr-amount').textContent = amt === 'any' ? 'Any amount' : '₹' + amt;
+    document.getElementById('qr-note').textContent = amt === 'any'
+      ? 'Type whatever you like in your UPI app.'
+      : "Scan with your phone's camera or UPI app.";
+    document.getElementById('open-upi').href = upiUri(amt);
+  }
+  for (const b of document.querySelectorAll('.amt')) {
+    b.addEventListener('click', () => selectAmount(b.dataset.amt));
+  }
+  selectAmount('99');
+
+  const root = document.documentElement;
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('discnct-theme', next);
+  });
+</script>
+
+</body>
+</html>
