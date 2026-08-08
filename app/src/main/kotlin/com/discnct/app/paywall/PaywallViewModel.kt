@@ -16,6 +16,8 @@ data class PaywallUiState(
     // steady state for a brand new install too, not just a loading placeholder.
     val isUnlocked: Boolean = true,
     val trialDaysRemaining: Int = TRIAL_DAYS,
+    val trialStarted: Boolean = false,
+    val unlockedPermanently: Boolean = false,
     val priceLabel: String? = null,
     val promoError: Boolean = false,
 )
@@ -50,6 +52,8 @@ class PaywallViewModel(application: Application) : AndroidViewModel(application)
                 PaywallUiState(
                     isUnlocked = isTrialActive(trialStart, now) || purchased || promo,
                     trialDaysRemaining = trialDaysRemaining(trialStart, now),
+                    trialStarted = trialStart != null,
+                    unlockedPermanently = purchased || promo,
                     priceLabel = price,
                     promoError = error,
                 )

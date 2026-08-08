@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             onOpenPermissions = { screen = Screen.Permissions },
+                                            paywallState = paywallState,
                                             darkTheme = darkTheme,
                                             onToggleTheme = {
                                                 val next = if (darkTheme) ThemeMode.LIGHT else ThemeMode.DARK

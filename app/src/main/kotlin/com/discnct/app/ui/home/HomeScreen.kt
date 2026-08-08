@@ -31,10 +31,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import android.content.Context
+import com.discnct.app.paywall.PaywallUiState
+import com.discnct.app.paywall.TRIAL_DAYS
+import com.discnct.app.ui.components.ButtonVariant
 import com.discnct.app.ui.components.Chip
+import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.onboarding.PermissionStatus
 import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
@@ -52,10 +57,12 @@ fun HomeScreen(
     onOpenPermissions: () -> Unit,
     darkTheme: Boolean,
     onToggleTheme: () -> Unit,
+    paywallState: PaywallUiState,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val colors = LocalDiscnctColors.current
+    var showTrialInfo by remember { mutableStateOf(false) }
 
     var permissionsReady by remember { mutableStateOf(allPermissionsGranted(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -111,11 +118,23 @@ fun HomeScreen(
             onClick = { onOpenSection(Section.ReelBlocker) },
         )
         Spacer(modifier = Modifier.height(12.dp))
+        val trialLabel = trialChipLabel(paywallState)
         SectionCard(
             index = "02",
             title = "App Blocker + Games",
             subtitle = "Block whole apps. Hold to unlock, or win a game to earn a few minutes back.",
             onClick = { onOpenSection(Section.AppBlockerGames) },
+            badge = if (trialLabel != null) {
+                {
+                    Chip(
+                        label = trialLabel,
+                        active = true,
+                        modifier = Modifier.clickable { showTrialInfo = true },
+                    )
+                }
+            } else {
+                null
+            },
         )
         Spacer(modifier = Modifier.height(12.dp))
         SectionCard(
@@ -134,6 +153,68 @@ fun HomeScreen(
             modifier = Modifier.padding(bottom = 10.dp),
         )
         SupportCard()
+    }
+
+    if (showTrialInfo) {
+        TrialInfoDialog(state = paywallState, onDismiss = { showTrialInfo = false })
+    }
+}
+
+/** Label for the Level 2 card's trial badge, or null once it's unlocked for good. */
+private fun trialChipLabel(state: PaywallUiState): String? = when {
+    state.unlockedPermanently -> null
+    !state.isUnlocked -> "Trial Ended"
+    !state.trialStarted -> "$TRIAL_DAYS-Day Trial"
+    state.trialDaysRemaining >= 2 -> "${state.trialDaysRemaining} Days Left"
+    state.trialDaysRemaining == 1 -> "1 Day Left"
+    else -> "Last Day"
+}
+
+private fun trialInfoCopy(state: PaywallUiState): Pair<String, String> = when {
+    !state.isUnlocked -> "Trial ended" to
+        "Your $TRIAL_DAYS-day free trial of App Blocker + Games is over. Unlock it once, forever — " +
+            "no subscription, nothing recurring."
+    !state.trialStarted -> "$TRIAL_DAYS days, free" to
+        "App Blocker + Games is free to try. Your $TRIAL_DAYS-day trial starts the moment you open " +
+            "it — after that, it's a one-time unlock, not a subscription."
+    state.trialDaysRemaining >= 2 -> "${state.trialDaysRemaining} days left" to
+        "Your free trial of App Blocker + Games ends in ${state.trialDaysRemaining} days. After " +
+            "that, unlock it once — no subscription, nothing recurring."
+    state.trialDaysRemaining == 1 -> "1 day left" to
+        "Your free trial of App Blocker + Games ends tomorrow. After that, unlock it once — no " +
+            "subscription, nothing recurring."
+    else -> "Last day" to
+        "Today's the last day of your free trial of App Blocker + Games. After that, unlock it " +
+            "once — no subscription, nothing recurring."
+}
+
+@Composable
+private fun TrialInfoDialog(state: PaywallUiState, onDismiss: () -> Unit) {
+    val colors = LocalDiscnctColors.current
+    val (heading, body) = trialInfoCopy(state)
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(DiscnctShapes.card)
+                .background(colors.surface)
+                .border(1.dp, colors.borderVisible, DiscnctShapes.card)
+                .padding(24.dp),
+        ) {
+            Text("APP BLOCKER + GAMES", style = DiscnctType.label, color = colors.textSecondary)
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = heading, style = DiscnctType.heading, color = colors.textDisplay)
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(text = body, style = DiscnctType.bodySmall, color = colors.textSecondary)
+            Spacer(modifier = Modifier.height(22.dp))
+            PillButton(
+                label = "Got it",
+                onClick = onDismiss,
+                variant = ButtonVariant.Primary,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
@@ -173,6 +254,7 @@ private fun SectionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     wip: Boolean = false,
+    badge: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalDiscnctColors.current
     Row(
@@ -195,6 +277,7 @@ private fun SectionCard(
             Spacer(modifier = Modifier.height(4.dp))
             Text(text = subtitle, style = DiscnctType.bodySmall, color = colors.textSecondary)
         }
+        if (badge != null) badge()
         Box(contentAlignment = Alignment.Center) {
             Text(text = "›", style = DiscnctType.heading, color = colors.textSecondary)
         }
