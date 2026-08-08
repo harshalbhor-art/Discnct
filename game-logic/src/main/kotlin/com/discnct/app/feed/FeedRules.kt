@@ -149,7 +149,7 @@ const val MIN_BOTTOM_CHROME_FRACTION = 0.08f
  * cap tells them apart without needing to know what either is called.
  */
 const val BAR_MIN_WIDTH_FRACTION = 0.8f
-const val BAR_MAX_HEIGHT_FRACTION = 0.10f
+const val BAR_MAX_HEIGHT_FRACTION = 0.13f
 const val BAR_EDGE_ZONE_FRACTION = 0.15f
 
 /**
@@ -165,7 +165,7 @@ const val BAR_EDGE_ZONE_FRACTION = 0.15f
  * the other. A real gap is tens of pixels; anything beyond this is a different surface, not a short
  * feed, and the region stays where it was.
  */
-const val MAX_CHROME_GAP_FRACTION = 0.15f
+const val MAX_CHROME_GAP_FRACTION = 0.18f
 
 /**
  * What we decided to cover: one rectangle, from under the top bar to above the bottom navigation.

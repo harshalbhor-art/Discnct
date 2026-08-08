@@ -158,8 +158,14 @@ class DiscnctAccessibilityService : AccessibilityService() {
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                maybeBlockWholeApp(foregroundPackage)
-                guardLevelOneSurfaces(foregroundPackage)
+                // A whole-app block takes priority: if it fired, skip the Level 1 scan for this same
+                // event entirely, rather than let it re-show a feed/reel overlay a moment before
+                // BlockActivity comes up. TYPE_APPLICATION_OVERLAY windows float above every activity,
+                // including our own — an overlay left up (or freshly re-shown) here would sit on top
+                // of the block screen instead of under it.
+                if (!maybeBlockWholeApp(foregroundPackage)) {
+                    guardLevelOneSurfaces(foregroundPackage)
+                }
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
@@ -182,17 +188,23 @@ class DiscnctAccessibilityService : AccessibilityService() {
         hideOverlay()
     }
 
-    private fun maybeBlockWholeApp(foregroundPackage: String) {
-        if (System.currentTimeMillis() < pausedUntilMillis) return
-        if (foregroundPackage !in blockedPackages) return
-        if (BlockCooldown.isAllowed(foregroundPackage)) return
+    /** @return true if the whole-app block fired and launched [BlockActivity]. */
+    private fun maybeBlockWholeApp(foregroundPackage: String): Boolean {
+        if (System.currentTimeMillis() < pausedUntilMillis) return false
+        if (foregroundPackage !in blockedPackages) return false
+        if (BlockCooldown.isAllowed(foregroundPackage)) return false
 
+        // Take any Level 1 overlay down first. It floats above every activity — including the one
+        // about to launch — so a cover left up from the moment before would hide the block screen
+        // behind it instead of sitting under it.
+        hideOverlay()
         startActivity(
             Intent(this, BlockActivity::class.java).apply {
                 putExtra(BlockActivity.EXTRA_PACKAGE_NAME, foregroundPackage)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },
         )
+        return true
     }
 
     /**
