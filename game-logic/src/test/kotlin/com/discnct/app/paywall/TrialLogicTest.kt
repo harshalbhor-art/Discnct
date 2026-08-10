@@ -45,6 +45,13 @@ class TrialLogicTest {
         assertEquals(1, trialDaysRemaining(start, nowMillis = start + (TRIAL_DAYS - 1) * dayMillis))
     }
 
+    @Test fun `days remaining stays at the full length shortly after the trial starts`() {
+        val start = 0L
+        assertEquals(TRIAL_DAYS, trialDaysRemaining(start, nowMillis = start + 1))
+        assertEquals(TRIAL_DAYS, trialDaysRemaining(start, nowMillis = start + 5_000L))
+        assertEquals(TRIAL_DAYS, trialDaysRemaining(start, nowMillis = start + dayMillis - 1))
+    }
+
     @Test fun `days remaining never goes negative once the trial has expired`() {
         val start = 0L
         assertEquals(0, trialDaysRemaining(start, nowMillis = start + TRIAL_DAYS * dayMillis))

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -27,9 +28,9 @@ import androidx.compose.ui.unit.dp
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-/** The three top-level destinations. Sub-section screens (Reel Blocker, App Blocker, ...) are
+/** The four top-level destinations. Sub-section screens (Reel Blocker, App Blocker, ...) are
  * reached by drilling in from Home and keep their own back button instead of living in this bar. */
-enum class BottomTab { Home, Stats, Settings }
+enum class BottomTab { Home, Support, Stats, Settings }
 
 @Composable
 fun BottomNav(selected: BottomTab, onSelect: (BottomTab) -> Unit, modifier: Modifier = Modifier) {
@@ -48,6 +49,12 @@ fun BottomNav(selected: BottomTab, onSelect: (BottomTab) -> Unit, modifier: Modi
             label = "Home",
             active = selected == BottomTab.Home,
             onClick = { onSelect(BottomTab.Home) },
+        )
+        NavItem(
+            icon = Icons.Filled.Favorite,
+            label = "Support",
+            active = selected == BottomTab.Support,
+            onClick = { onSelect(BottomTab.Support) },
         )
         NavItem(
             icon = StatsBarsIcon,
@@ -72,8 +79,8 @@ private fun NavItem(icon: ImageVector, label: String, active: Boolean, onClick: 
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .clickable(onClick = onClick)
-            // Three tabs instead of two, so the touch targets give back some of their side room.
-            .padding(horizontal = 18.dp, vertical = 4.dp),
+            // Four tabs now, so less side padding than a two- or three-tab bar would carry.
+            .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
         Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.height(4.dp))

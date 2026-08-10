@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,7 @@ import com.discnct.app.ui.onboarding.PermissionStatus
 import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
+import kotlinx.coroutines.delay
 
 /**
  * The three things the home screen routes into, ordered the way they're meant to be tried:
@@ -72,6 +74,16 @@ fun HomeScreen(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    // Belt-and-suspenders on top of the ON_RESUME check above: a shortcut (or tile) round-trip
+    // can pause and resume the activity too quickly for a single resume event to land cleanly,
+    // which left this banner stuck on a stale reading. Re-checking for a few seconds after the
+    // screen becomes visible makes it self-correct instead of needing another real resume.
+    LaunchedEffect(lifecycleOwner) {
+        repeat(5) {
+            delay(1000)
+            permissionsReady = allPermissionsGranted(context)
+        }
     }
 
     Column(
@@ -144,15 +156,6 @@ fun HomeScreen(
             wip = true,
             onClick = { onOpenSection(Section.TotalDisconnect) },
         )
-
-        Spacer(modifier = Modifier.height(28.dp))
-        Text(
-            text = "SUPPORT",
-            style = DiscnctType.label,
-            color = colors.textSecondary,
-            modifier = Modifier.padding(bottom = 10.dp),
-        )
-        SupportCard()
     }
 
     if (showTrialInfo) {

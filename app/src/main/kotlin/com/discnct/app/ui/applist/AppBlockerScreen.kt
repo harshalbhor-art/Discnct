@@ -33,16 +33,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.discnct.app.game.GameOutcome
 import com.discnct.app.game.GameType
 import com.discnct.app.service.BlockerGamesStore
 import com.discnct.app.ui.blockscreen.GameHost
 import com.discnct.app.ui.components.Chip
 import com.discnct.app.ui.components.DiscnctToggle
+import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.home.SectionTopBar
 import com.discnct.app.ui.settings.PinPromptDialog
 import com.discnct.app.ui.settings.PinPromptMode
@@ -248,15 +251,23 @@ private fun GamePicker(
 
 /**
  * A game played from the settings screen, full-bleed so it looks exactly like the real thing.
- * [GameHost] reports an outcome when the game ends; here it just closes the dialog, since minutes
- * earned in a preview would be minutes earned without ever having been blocked.
+ * [GameHost] reports an outcome when the game ends; it's held here and shown as a result screen
+ * rather than closing straight away, so playing through a puzzle actually confirms whether it was
+ * solved. The minutes themselves are never banked — this is a preview, not a real earn.
  */
 @Composable
 private fun GamePreviewDialog(gameType: GameType, onClose: () -> Unit) {
     val colors = LocalDiscnctColors.current
+    var result by remember { mutableStateOf<GameOutcome?>(null) }
+
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(modifier = Modifier.fillMaxSize().background(colors.black)) {
-            GameHost(gameType = gameType, onFinished = { onClose() })
+            val outcome = result
+            if (outcome == null) {
+                GameHost(gameType = gameType, onFinished = { result = it })
+            } else {
+                GamePreviewResult(outcome = outcome, onClose = onClose)
+            }
             Text(
                 text = "CLOSE",
                 style = DiscnctType.label,
@@ -269,6 +280,33 @@ private fun GamePreviewDialog(gameType: GameType, onClose: () -> Unit) {
                     .padding(horizontal = 20.dp, vertical = 16.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun GamePreviewResult(outcome: GameOutcome, onClose: () -> Unit) {
+    val colors = LocalDiscnctColors.current
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = outcome.resultLabel,
+            style = DiscnctType.heading,
+            color = colors.textDisplay,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "In a real block, this would've earned +${outcome.earnedMinutes} min. " +
+                "This was just a try — nothing's banked.",
+            style = DiscnctType.bodySmall,
+            color = colors.textSecondary,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        PillButton(label = "Close", onClick = onClose, modifier = Modifier.fillMaxWidth())
     }
 }
 

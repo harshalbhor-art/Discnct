@@ -16,9 +16,15 @@ private const val TRIAL_MILLIS = TRIAL_DAYS * DAY_MILLIS
 fun isTrialActive(trialStartMillis: Long?, nowMillis: Long): Boolean =
     trialStartMillis == null || nowMillis - trialStartMillis < TRIAL_MILLIS
 
-/** Whole days left in the trial. Never negative, and a null start reads as the full length. */
+/**
+ * Whole days left in the trial. Never negative, and a null start reads as the full length.
+ *
+ * Counts by whole days *elapsed*, not time *remaining* — so it stays at [TRIAL_DAYS] for the
+ * entire first day and only ticks down at each 24-hour mark, instead of dropping the instant a
+ * single second passes (which flooring the remaining time would do).
+ */
 fun trialDaysRemaining(trialStartMillis: Long?, nowMillis: Long): Int {
     if (trialStartMillis == null) return TRIAL_DAYS
-    val remainingMillis = TRIAL_MILLIS - (nowMillis - trialStartMillis)
-    return (remainingMillis / DAY_MILLIS).toInt().coerceAtLeast(0)
+    val elapsedDays = ((nowMillis - trialStartMillis) / DAY_MILLIS).toInt()
+    return (TRIAL_DAYS - elapsedDays).coerceAtLeast(0)
 }

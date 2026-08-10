@@ -35,6 +35,7 @@ import com.discnct.app.ui.home.BottomNav
 import com.discnct.app.ui.home.BottomTab
 import com.discnct.app.ui.home.HomeScreen
 import com.discnct.app.ui.home.Section
+import com.discnct.app.ui.home.SupportScreen
 import com.discnct.app.ui.onboarding.FirstRunStore
 import com.discnct.app.ui.onboarding.OnboardingScreen
 import com.discnct.app.ui.onboarding.WelcomeDialog
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
     private sealed interface Screen {
         data object Home : Screen
+        data object Support : Screen
         data object Stats : Screen
         data object Settings : Screen
         data object ReelBlocker : Screen
@@ -109,9 +111,10 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Home, Stats and Settings are the top-level tabs and share the bottom nav bar;
-                // every other screen is reached by drilling in and keeps its own back button.
-                val isTopLevel = screen == Screen.Home || screen == Screen.Stats || screen == Screen.Settings
+                // Home, Support, Stats and Settings are the top-level tabs and share the bottom nav
+                // bar; every other screen is reached by drilling in and keeps its own back button.
+                val isTopLevel = screen == Screen.Home || screen == Screen.Support ||
+                    screen == Screen.Stats || screen == Screen.Settings
 
                 // Everything sits in one Box so the snackbar has somewhere to land. It is provided
                 // rather than passed because the only thing that raises one — the support card — is
@@ -148,6 +151,7 @@ class MainActivity : ComponentActivity() {
                                                 scope.launch { themeStore.setThemeMode(next) }
                                             },
                                         )
+                                        Screen.Support -> SupportScreen()
                                         Screen.Stats -> StatsScreen()
                                         else -> SettingsScreen(
                                             onOpenFinancialApps = { screen = Screen.FinancialApps },
@@ -156,6 +160,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 BottomNav(
                                     selected = when (screen) {
+                                        Screen.Support -> BottomTab.Support
                                         Screen.Stats -> BottomTab.Stats
                                         Screen.Settings -> BottomTab.Settings
                                         else -> BottomTab.Home
@@ -163,6 +168,7 @@ class MainActivity : ComponentActivity() {
                                     onSelect = { tab ->
                                         screen = when (tab) {
                                             BottomTab.Home -> Screen.Home
+                                            BottomTab.Support -> Screen.Support
                                             BottomTab.Stats -> Screen.Stats
                                             BottomTab.Settings -> Screen.Settings
                                         }
