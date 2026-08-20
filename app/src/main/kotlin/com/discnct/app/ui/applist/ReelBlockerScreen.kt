@@ -79,6 +79,7 @@ fun ReelBlockerScreen(
     val strictStore = remember { StrictModeStore(context.applicationContext) }
     val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
     var pendingMasterUnlock by remember { mutableStateOf(false) }
+    var pendingAppUnlock by remember { mutableStateOf<PendingAppUnlock?>(null) }
 
     var searchOpen by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
@@ -174,8 +175,20 @@ fun ReelBlockerScreen(
                     GuardedAppRow(
                         row = row,
                         masterEnabled = reelEnabled,
-                        onToggleReels = { viewModel.setReelBlocked(row.packageName, it) },
-                        onToggleFeed = { viewModel.setFeedBlocked(row.packageName, it) },
+                        onToggleReels = { newValue ->
+                            if (!newValue && strictEnabled) {
+                                pendingAppUnlock = PendingAppUnlock.Reel(row.packageName)
+                            } else {
+                                viewModel.setReelBlocked(row.packageName, newValue)
+                            }
+                        },
+                        onToggleFeed = { newValue ->
+                            if (!newValue && strictEnabled) {
+                                pendingAppUnlock = PendingAppUnlock.Feed(row.packageName)
+                            } else {
+                                viewModel.setFeedBlocked(row.packageName, newValue)
+                            }
+                        },
                         onChangeImage = { onOpenCoverImage(row.packageName) },
                     )
                     HorizontalDivider(color = colors.border, thickness = 1.dp)
@@ -195,6 +208,31 @@ fun ReelBlockerScreen(
             onDismiss = { pendingMasterUnlock = false },
         )
     }
+
+    val unlockTarget = pendingAppUnlock
+    if (unlockTarget != null) {
+        PinPromptDialog(
+            mode = PinPromptMode.Verify(checkPin = { strictStore.verifyPin(it) }),
+            title = when (unlockTarget) {
+                is PendingAppUnlock.Reel -> "Enter PIN to allow Reels & Shorts"
+                is PendingAppUnlock.Feed -> "Enter PIN to allow the main feed"
+            },
+            onConfirmed = {
+                when (unlockTarget) {
+                    is PendingAppUnlock.Reel -> viewModel.setReelBlocked(unlockTarget.packageName, false)
+                    is PendingAppUnlock.Feed -> viewModel.setFeedBlocked(unlockTarget.packageName, false)
+                }
+                pendingAppUnlock = null
+            },
+            onDismiss = { pendingAppUnlock = null },
+        )
+    }
+}
+
+/** A per-app Reel/Feed toggle waiting on PIN confirmation before it actually turns off. */
+private sealed interface PendingAppUnlock {
+    data class Reel(val packageName: String) : PendingAppUnlock
+    data class Feed(val packageName: String) : PendingAppUnlock
 }
 
 @Composable

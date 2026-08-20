@@ -12,6 +12,7 @@ import com.discnct.app.feed.FeedNode
 import com.discnct.app.feed.FeedRegion
 import com.discnct.app.feed.detectFeedSurface
 import com.discnct.app.feed.isFeedHostPackage
+import com.discnct.app.pause.isPauseActive
 import com.discnct.app.reel.BROWSER_URL_NODE_ID_MARKERS
 import com.discnct.app.reel.BounceAction
 import com.discnct.app.reel.BounceState
@@ -22,6 +23,7 @@ import com.discnct.app.reel.nextBounce
 import com.discnct.app.ui.applist.BlockListStore
 import com.discnct.app.ui.blockscreen.BlockActivity
 import com.discnct.app.ui.settings.PauseStore
+import com.discnct.app.ui.settings.PauseWindow
 import com.discnct.app.ui.theme.ThemeMode
 import com.discnct.app.ui.theme.ThemeStore
 import kotlinx.coroutines.CoroutineScope
@@ -75,9 +77,10 @@ class DiscnctAccessibilityService : AccessibilityService() {
     @Volatile
     private var reelBlockingEnabled: Boolean = true
 
-    /** Epoch millis until which all blocking is suspended (Settings > Pause Everything). 0 = not paused. */
+    /** Current Settings > Pause Everything window, checked with [isPauseActive] rather than the
+     * wall clock directly — see that function for why. */
     @Volatile
-    private var pausedUntilMillis: Long = 0L
+    private var pauseWindow: PauseWindow = PauseWindow(0L, 0L, 0L)
 
     /** Throttle: content/scroll events fire in bursts, so scan the tree at most this often. */
     private var lastScanAtMs = 0L
@@ -135,8 +138,8 @@ class DiscnctAccessibilityService : AccessibilityService() {
             }
         }
         serviceScope.launch {
-            PauseStore(applicationContext).pausedUntilMillis.collect {
-                pausedUntilMillis = it
+            PauseStore(applicationContext).window.collect {
+                pauseWindow = it
                 hideOverlaySoon()
             }
         }
@@ -157,19 +160,22 @@ class DiscnctAccessibilityService : AccessibilityService() {
         }
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
                 // A whole-app block takes priority: if it fired, skip the Level 1 scan for this same
                 // event entirely, rather than let it re-show a feed/reel overlay a moment before
                 // BlockActivity comes up. TYPE_APPLICATION_OVERLAY windows float above every activity,
                 // including our own — an overlay left up (or freshly re-shown) here would sit on top
                 // of the block screen instead of under it.
+                //
+                // Checked on every event type, not just a window changing: a held-open app that
+                // keeps scrolling in place (content-changed/scrolled events, no window transition)
+                // would otherwise outlive an earned unlock indefinitely once BlockCooldown expired,
+                // since nothing would re-check it until the user actually switched away and back.
                 if (!maybeBlockWholeApp(foregroundPackage)) {
                     guardLevelOneSurfaces(foregroundPackage)
                 }
-            }
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-            AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
-                guardLevelOneSurfaces(foregroundPackage)
             }
         }
     }
@@ -188,9 +194,17 @@ class DiscnctAccessibilityService : AccessibilityService() {
         hideOverlay()
     }
 
+    private fun isCurrentlyPaused(): Boolean = isPauseActive(
+        untilWallMillis = pauseWindow.untilWallMillis,
+        atElapsedMillis = pauseWindow.atElapsedMillis,
+        durationMillis = pauseWindow.durationMillis,
+        nowWallMillis = System.currentTimeMillis(),
+        nowElapsedMillis = SystemClock.elapsedRealtime(),
+    )
+
     /** @return true if the whole-app block fired and launched [BlockActivity]. */
     private fun maybeBlockWholeApp(foregroundPackage: String): Boolean {
-        if (System.currentTimeMillis() < pausedUntilMillis) return false
+        if (isCurrentlyPaused()) return false
         if (foregroundPackage !in blockedPackages) return false
         if (BlockCooldown.isAllowed(foregroundPackage)) return false
 
@@ -223,7 +237,7 @@ class DiscnctAccessibilityService : AccessibilityService() {
             bounceState = BounceState()
         }
 
-        val paused = System.currentTimeMillis() < pausedUntilMillis
+        val paused = isCurrentlyPaused()
 
         // Deliberately not checking BlockCooldown for either: that's time earned at Level 2 to open
         // the *app*, and neither reels nor the feed is something you can earn your way into.

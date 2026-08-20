@@ -15,19 +15,24 @@ data class ReelToggleResult(val changed: Boolean, val message: String)
 /**
  * Flips the reel blocker and describes what happened.
  *
- * Strict Mode is honoured: switching the blocker *off* is the weakening move, and in the app it
- * costs a PIN. A shortcut that skipped that check would be a way around Strict Mode, so it refuses
- * instead. Switching it back *on* never needs the PIN, here or anywhere else.
+ * Switching it *off* is the weakening move, and in the app that costs a PIN whenever Strict Mode
+ * is on. This entry point is stricter than the in-app one: it's reached via an exported shortcut
+ * activity and Quick Settings tile, both of which any other installed app can trigger too — not
+ * just a tap inside Discnct's own UI — so turning off here refuses whenever a PIN has ever been
+ * set, even if Strict Mode itself is currently switched off. Someone who's never set up a PIN gets
+ * the same frictionless toggle as before; someone who has gets it protected everywhere it's
+ * reachable from outside the app, not only where Strict Mode happens to be on right now. Switching
+ * it back *on* never needs the PIN, here or anywhere else.
  */
 suspend fun toggleReelBlocking(
     gamesStore: BlockerGamesStore,
     strictStore: StrictModeStore,
 ): ReelToggleResult {
     val enabled = gamesStore.reelBlockingEnabled.first()
-    if (enabled && strictStore.enabled.first()) {
+    if (enabled && strictStore.hasPin.first()) {
         return ReelToggleResult(
             changed = false,
-            message = "Strict Mode is on — turn the reel blocker off inside Discnct.",
+            message = "A PIN is set — turn the reel blocker off inside Discnct.",
         )
     }
     gamesStore.setReelBlockingEnabled(!enabled)

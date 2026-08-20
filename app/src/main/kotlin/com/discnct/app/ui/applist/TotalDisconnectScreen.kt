@@ -38,6 +38,9 @@ import com.discnct.app.ui.components.Chip
 import com.discnct.app.ui.components.DiscnctToggle
 import com.discnct.app.ui.components.PillButton
 import com.discnct.app.ui.home.SectionTopBar
+import com.discnct.app.ui.settings.PinPromptDialog
+import com.discnct.app.ui.settings.PinPromptMode
+import com.discnct.app.ui.settings.StrictModeStore
 import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
@@ -64,6 +67,10 @@ fun TotalDisconnectScreen(
     val restrictedEnabled by store.restrictedModeEnabled.collectAsStateWithLifecycle(initialValue = false)
     val allowedPackages by allowedStore.allowedPackages.collectAsStateWithLifecycle(initialValue = null)
     var isDefaultHome by remember { mutableStateOf(LauncherStatus.isDefaultHome(context)) }
+
+    val strictStore = remember { StrictModeStore(context.applicationContext) }
+    val strictEnabled by strictStore.enabled.collectAsStateWithLifecycle(initialValue = false)
+    var pendingRestrictedUnlock by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -109,7 +116,13 @@ fun TotalDisconnectScreen(
                 }
                 DiscnctToggle(
                     checked = restrictedEnabled,
-                    onCheckedChange = { enabled -> scope.launch { store.setRestrictedModeEnabled(enabled) } },
+                    onCheckedChange = { enabled ->
+                        if (!enabled && strictEnabled) {
+                            pendingRestrictedUnlock = true
+                        } else {
+                            scope.launch { store.setRestrictedModeEnabled(enabled) }
+                        }
+                    },
                 )
             }
 
@@ -132,6 +145,18 @@ fun TotalDisconnectScreen(
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+
+    if (pendingRestrictedUnlock) {
+        PinPromptDialog(
+            mode = PinPromptMode.Verify(checkPin = { strictStore.verifyPin(it) }),
+            title = "Enter PIN to turn off the restricted launcher",
+            onConfirmed = {
+                scope.launch { store.setRestrictedModeEnabled(false) }
+                pendingRestrictedUnlock = false
+            },
+            onDismiss = { pendingRestrictedUnlock = false },
+        )
     }
 }
 

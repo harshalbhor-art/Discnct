@@ -57,4 +57,23 @@ class TrialLogicTest {
         assertEquals(0, trialDaysRemaining(start, nowMillis = start + TRIAL_DAYS * dayMillis))
         assertEquals(0, trialDaysRemaining(start, nowMillis = start + TRIAL_DAYS * dayMillis * 5))
     }
+
+    @Test fun `small clock jitter just before the start is still treated as active`() {
+        val start = 1_000_000L
+        assertTrue(isTrialActive(start, nowMillis = start - 5_000L))
+        assertEquals(TRIAL_DAYS, trialDaysRemaining(start, nowMillis = start - 5_000L))
+    }
+
+    @Test fun `setting the clock back past the start reads as an expired trial, not a fresh one`() {
+        val start = 30L * dayMillis
+        // Winding the clock back a full day (well past the jitter grace window) to before the
+        // recorded start must not resurrect an already-used trial.
+        assertFalse(isTrialActive(start, nowMillis = start - dayMillis))
+        assertEquals(0, trialDaysRemaining(start, nowMillis = start - dayMillis))
+    }
+
+    @Test fun `days remaining never exceeds the trial length even with a rolled-back clock`() {
+        val start = 30L * dayMillis
+        assertEquals(0, trialDaysRemaining(start, nowMillis = start - dayMillis * 100))
+    }
 }
