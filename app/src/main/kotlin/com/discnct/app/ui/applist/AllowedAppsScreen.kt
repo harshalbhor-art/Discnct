@@ -182,6 +182,6 @@ private fun AllowedAppRow(row: AppRow, allowed: Boolean, onToggle: (Boolean) -> 
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        DiscnctToggle(checked = allowed, onCheckedChange = onToggle)
+        DiscnctToggle(checked = allowed, onCheckedChange = onToggle, contentDescription = "${row.label} on home screen")
     }
 }

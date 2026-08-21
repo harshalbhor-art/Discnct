@@ -90,20 +90,35 @@ fun PaywallScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-            PillButton(
-                label = uiState.priceLabel?.let { "Buy — $it" } ?: "Buy to unlock",
-                onClick = {
-                    context.findActivity()?.let { activity -> viewModel.buy(activity) }
-                },
-                enabled = uiState.priceLabel != null,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Opens Google Play's own purchase screen.",
-                style = DiscnctType.label,
-                color = colors.textDisabled,
-            )
+            if (uiState.billingUnavailable) {
+                Text(
+                    text = "Google Play purchases aren't available on this device or account right now.",
+                    style = DiscnctType.body,
+                    color = colors.accent,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                PillButton(
+                    label = "Retry",
+                    onClick = { viewModel.retryBilling() },
+                    variant = ButtonVariant.Secondary,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                PillButton(
+                    label = uiState.priceLabel?.let { "Buy — $it" } ?: "Buy to unlock",
+                    onClick = {
+                        context.findActivity()?.let { activity -> viewModel.buy(activity) }
+                    },
+                    enabled = uiState.priceLabel != null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Opens Google Play's own purchase screen.",
+                    style = DiscnctType.label,
+                    color = colors.textDisabled,
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
             Text(text = "GOT A CODE?", style = DiscnctType.label, color = colors.textSecondary)

@@ -41,7 +41,14 @@ class BillingRepository(context: Context) {
     private val _priceLabel = MutableStateFlow<String?>(null)
     val priceLabel: StateFlow<String?> = _priceLabel.asStateFlow()
 
+    /** True once setup has come back with something other than OK — no Play Store, unsupported
+     * region/device, etc. Lets the paywall show a reason and a retry instead of a Buy button that's
+     * disabled forever with no explanation. */
+    private val _billingUnavailable = MutableStateFlow(false)
+    val billingUnavailable: StateFlow<Boolean> = _billingUnavailable.asStateFlow()
+
     private var productDetails: ProductDetails? = null
+    private var onReadyCallback: (() -> Unit)? = null
 
     // Only for the fire-and-forget acknowledgement a purchase needs — everything else runs on
     // whatever scope calls the suspend functions below (the paywall view model's own).
@@ -60,19 +67,43 @@ class BillingRepository(context: Context) {
 
     /** Connects to Play; [onReady] is where the caller should kick off the first [refresh]. */
     fun start(onReady: () -> Unit) {
+        onReadyCallback = onReady
+        connect()
+    }
+
+    /** Re-attempts the connection with whatever [onReady] was last passed to [start] — used both
+     * for the initial connect and to recover from a later disconnect. */
+    private fun connect() {
         if (client.isReady) {
-            onReady()
+            _billingUnavailable.value = false
+            onReadyCallback?.invoke()
             return
         }
         client.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
-                if (result.responseCode == BillingClient.BillingResponseCode.OK) onReady()
+                if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                    _billingUnavailable.value = false
+                    onReadyCallback?.invoke()
+                } else {
+                    // No Play Store, unsupported region/device, etc. — surfaced so the paywall can
+                    // show a reason instead of a Buy button that's disabled forever unexplained.
+                    _billingUnavailable.value = true
+                }
             }
 
             override fun onBillingServiceDisconnected() {
-                // Play's own guidance: nothing to do here, just try again next time refresh() runs.
+                // Play's own guidance is to retry; unlike a setup failure, a service that was
+                // connected and then died is usually transient (e.g. Play Store process reclaimed
+                // under memory pressure), so reconnect rather than leaving refresh()/launchPurchase
+                // silently stuck against a dead client until the app restarts.
+                connect()
             }
         })
+    }
+
+    /** Re-attempts the connection after [billingUnavailable] — call from a user-visible retry action. */
+    fun retry() {
+        connect()
     }
 
     /** Re-checks Play's purchase record and the product's live price. Call on connect and on every resume. */

@@ -15,6 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +75,51 @@ class MainActivity : ComponentActivity() {
         data class Paywall(val target: Section) : Screen
     }
 
+    /**
+     * Encodes [Screen] as a plain string so `rememberSaveable` can carry it through process death —
+     * without this, Android reclaiming the process mid-drill-down (e.g. inside [Screen.CoverImage])
+     * silently dumps the user back to Home when they return via Recents, with no indication anything
+     * happened. Deliberately falls back to [Screen.Home] on anything unrecognized rather than
+     * crashing, since a lost place beats a broken restore.
+     */
+    private val screenSaver = Saver<Screen, String>(
+        save = { screen ->
+            when (screen) {
+                Screen.Home -> "Home"
+                Screen.Support -> "Support"
+                Screen.Stats -> "Stats"
+                Screen.Settings -> "Settings"
+                Screen.ReelBlocker -> "ReelBlocker"
+                Screen.AppBlocker -> "AppBlocker"
+                Screen.TotalDisconnect -> "TotalDisconnect"
+                Screen.AllowedApps -> "AllowedApps"
+                Screen.FinancialApps -> "FinancialApps"
+                Screen.Permissions -> "Permissions"
+                is Screen.CoverImage -> "CoverImage:${screen.packageName}"
+                is Screen.Paywall -> "Paywall:${screen.target.name}"
+            }
+        },
+        restore = { encoded ->
+            when {
+                encoded == "Home" -> Screen.Home
+                encoded == "Support" -> Screen.Support
+                encoded == "Stats" -> Screen.Stats
+                encoded == "Settings" -> Screen.Settings
+                encoded == "ReelBlocker" -> Screen.ReelBlocker
+                encoded == "AppBlocker" -> Screen.AppBlocker
+                encoded == "TotalDisconnect" -> Screen.TotalDisconnect
+                encoded == "AllowedApps" -> Screen.AllowedApps
+                encoded == "FinancialApps" -> Screen.FinancialApps
+                encoded == "Permissions" -> Screen.Permissions
+                encoded.startsWith("CoverImage:") -> Screen.CoverImage(encoded.removePrefix("CoverImage:"))
+                encoded.startsWith("Paywall:") -> runCatching {
+                    Screen.Paywall(Section.valueOf(encoded.removePrefix("Paywall:")))
+                }.getOrDefault(Screen.Home)
+                else -> Screen.Home
+            }
+        },
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -98,7 +145,7 @@ class MainActivity : ComponentActivity() {
                 val paywallViewModel: PaywallViewModel = viewModel()
                 val paywallState by paywallViewModel.uiState.collectAsStateWithLifecycle()
 
-                var screen by remember { mutableStateOf<Screen>(Screen.Home) }
+                var screen by rememberSaveable(stateSaver = screenSaver) { mutableStateOf<Screen>(Screen.Home) }
 
                 // Allowed Apps is the one screen reached from another section rather than from
                 // Home, so back has to put you where you came from.

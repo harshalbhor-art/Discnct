@@ -123,6 +123,7 @@ fun TotalDisconnectScreen(
                             scope.launch { store.setRestrictedModeEnabled(enabled) }
                         }
                     },
+                    contentDescription = "Restricted Launcher",
                 )
             }
 

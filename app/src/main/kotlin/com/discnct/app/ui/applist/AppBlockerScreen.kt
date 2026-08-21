@@ -238,6 +238,7 @@ private fun GamePicker(
                     DiscnctToggle(
                         checked = type in enabledGames,
                         onCheckedChange = { on -> onGameToggle(type, on) },
+                        contentDescription = type.displayName,
                     )
                 }
                 if (i != GameType.entries.lastIndex) {
@@ -335,6 +336,6 @@ private fun WholeAppRow(row: AppRow, onToggle: (Boolean) -> Unit) {
                 )
             }
         }
-        DiscnctToggle(checked = row.isBlocked, onCheckedChange = onToggle)
+        DiscnctToggle(checked = row.isBlocked, onCheckedChange = onToggle, contentDescription = "Block ${row.label}")
     }
 }

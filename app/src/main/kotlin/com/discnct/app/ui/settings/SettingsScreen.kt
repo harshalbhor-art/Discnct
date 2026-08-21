@@ -181,6 +181,7 @@ fun SettingsScreen(onOpenFinancialApps: () -> Unit = {}, modifier: Modifier = Mo
                                 pendingPinAction = PendingPinAction.DisableStrictMode
                             }
                         },
+                        contentDescription = "Strict Mode",
                     )
                 }
                 if (hasPin) {

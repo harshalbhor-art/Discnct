@@ -20,6 +20,7 @@ data class PaywallUiState(
     val unlockedPermanently: Boolean = false,
     val priceLabel: String? = null,
     val promoError: Boolean = false,
+    val billingUnavailable: Boolean = false,
 )
 
 /**
@@ -57,6 +58,8 @@ class PaywallViewModel(application: Application) : AndroidViewModel(application)
                     priceLabel = price,
                     promoError = error,
                 )
+            }.combine(billing.billingUnavailable) { state, unavailable ->
+                state.copy(billingUnavailable = unavailable)
             }.collect { _uiState.value = it }
         }
     }
@@ -69,6 +72,12 @@ class PaywallViewModel(application: Application) : AndroidViewModel(application)
     /** Re-checks Play's purchase record. Call on resume — a purchase can complete outside the app. */
     fun refreshBilling() {
         viewModelScope.launch { billing.refresh() }
+    }
+
+    /** User-triggered retry after [PaywallUiState.billingUnavailable] — e.g. Play Store was just
+     * installed/updated, or a transient setup failure has since cleared. */
+    fun retryBilling() {
+        billing.retry()
     }
 
     fun buy(activity: Activity) {

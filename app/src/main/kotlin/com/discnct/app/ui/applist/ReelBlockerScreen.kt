@@ -262,7 +262,7 @@ private fun MasterToggleCard(enabled: Boolean, onToggle: (Boolean) -> Unit) {
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            DiscnctToggle(checked = enabled, onCheckedChange = onToggle)
+            DiscnctToggle(checked = enabled, onCheckedChange = onToggle, contentDescription = "Reel & Shorts Blocker")
         }
         Spacer(modifier = Modifier.height(8.dp))
     }
@@ -407,7 +407,7 @@ private fun SurfaceToggleRow(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        DiscnctToggle(checked = checked, onCheckedChange = onCheckedChange)
+        DiscnctToggle(checked = checked, onCheckedChange = onCheckedChange, contentDescription = title)
     }
 }
 

@@ -185,6 +185,6 @@ private fun FinancialAppRow(
                 modifier = Modifier.padding(top = 2.dp),
             )
         }
-        DiscnctToggle(checked = exempt, onCheckedChange = onToggle)
+        DiscnctToggle(checked = exempt, onCheckedChange = onToggle, contentDescription = "Exempt ${row.label} from enforcement")
     }
 }
