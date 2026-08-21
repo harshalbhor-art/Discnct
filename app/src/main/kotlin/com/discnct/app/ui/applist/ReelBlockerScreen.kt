@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -292,7 +293,14 @@ private fun GuardedAppRow(
                 contentDescription = null,
                 modifier = Modifier.size(36.dp).clip(DiscnctShapes.cardCompact),
             )
-            Text(text = row.label, style = DiscnctType.body, color = colors.textPrimary)
+            Text(
+                text = row.label,
+                style = DiscnctType.body,
+                color = colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
         }
 
         if (row.isReelHost) {

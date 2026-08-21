@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -172,7 +173,13 @@ private fun FinancialAppRow(
             modifier = Modifier.size(36.dp).clip(DiscnctShapes.cardCompact),
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.label, style = DiscnctType.body, color = colors.textPrimary)
+            Text(
+                text = row.label,
+                style = DiscnctType.body,
+                color = colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             Text(
                 text = when {
                     exempt && recognised -> "Discnct stands down — recognised"

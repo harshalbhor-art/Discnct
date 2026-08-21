@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -326,7 +327,13 @@ private fun WholeAppRow(row: AppRow, onToggle: (Boolean) -> Unit) {
             modifier = Modifier.size(36.dp).clip(DiscnctShapes.cardCompact),
         )
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = row.label, style = DiscnctType.body, color = colors.textPrimary)
+            Text(
+                text = row.label,
+                style = DiscnctType.body,
+                color = colors.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (usageLabel.isNotEmpty()) {
                 Text(
                     text = "$usageLabel past week",
