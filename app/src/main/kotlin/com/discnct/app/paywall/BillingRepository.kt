@@ -7,7 +7,7 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
-import com.android.billingclient.api.PendingPurchaseParams
+import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
@@ -64,7 +64,7 @@ class BillingRepository(context: Context) {
     private val client: BillingClient = BillingClient.newBuilder(context)
         .setListener(purchasesUpdatedListener)
         .enablePendingPurchases(
-            PendingPurchaseParams.newBuilder().enableOneTimeProducts().build(),
+            PendingPurchasesParams.newBuilder().enableOneTimeProducts().build(),
         )
         .build()
 
