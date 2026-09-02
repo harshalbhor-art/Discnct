@@ -21,7 +21,7 @@ import com.discnct.app.ui.theme.DiscnctShapes
 import com.discnct.app.ui.theme.DiscnctType
 import com.discnct.app.ui.theme.LocalDiscnctColors
 
-enum class ButtonVariant { Primary, Secondary, Ghost, Destructive }
+enum class ButtonVariant { Primary, Secondary, Ghost }
 
 /**
  * The system's one button shape: pill, Space Mono, all-caps, 44dp minimum touch target.
@@ -45,15 +45,13 @@ fun PillButton(
     }
     val border = when (variant) {
         ButtonVariant.Secondary -> BorderStroke(1.dp, if (enabled) colors.borderVisible else colors.border)
-        ButtonVariant.Destructive -> BorderStroke(1.dp, if (enabled) colors.accent else colors.border)
         else -> null
     }
     val textColor = when {
         !enabled -> colors.textDisabled
         variant == ButtonVariant.Primary -> colors.black
         variant == ButtonVariant.Secondary -> colors.textPrimary
-        variant == ButtonVariant.Ghost -> colors.textSecondary
-        else -> colors.accent // Destructive
+        else -> colors.textSecondary // Ghost
     }
 
     Box(

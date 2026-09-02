@@ -170,15 +170,6 @@ fun SupportCard(modifier: Modifier = Modifier) {
             style = DiscnctType.label,
             color = colors.textDisabled,
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
-        PillButton(
-            label = "Share Discnct instead",
-            onClick = {},
-            enabled = false,
-            variant = ButtonVariant.Secondary,
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 

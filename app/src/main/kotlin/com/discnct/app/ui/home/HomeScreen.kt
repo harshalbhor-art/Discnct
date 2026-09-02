@@ -36,6 +36,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import android.content.Context
+import android.content.Intent
 import com.discnct.app.paywall.PaywallUiState
 import com.discnct.app.paywall.TRIAL_DAYS
 import com.discnct.app.ui.components.ButtonVariant
@@ -155,6 +156,21 @@ fun HomeScreen(
             subtitle = "Blocked apps, plus a home screen stripped back to the handful you allow.",
             wip = true,
             onClick = { onOpenSection(Section.TotalDisconnect) },
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+        PillButton(
+            label = "Share Discnct",
+            onClick = {
+                val playStoreUrl = "https://play.google.com/store/apps/details?id=${context.packageName}"
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, "Break the scroll — try Discnct: $playStoreUrl")
+                }
+                context.startActivity(Intent.createChooser(sendIntent, "Share Discnct"))
+            },
+            variant = ButtonVariant.Secondary,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 

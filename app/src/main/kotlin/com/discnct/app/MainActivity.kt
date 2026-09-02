@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -146,6 +147,22 @@ class MainActivity : ComponentActivity() {
                 val paywallState by paywallViewModel.uiState.collectAsStateWithLifecycle()
 
                 var screen by rememberSaveable(stateSaver = screenSaver) { mutableStateOf<Screen>(Screen.Home) }
+
+                // The Level 2/3 entitlement check normally runs once, in onOpenSection below — but
+                // screen is also restored directly here after process death (that's the whole point
+                // of screenSaver). Without this, a trial that expired while the process was dead
+                // would restore straight back into a gated screen with no re-check, since restore
+                // skips onOpenSection entirely.
+                LaunchedEffect(screen, paywallState.isUnlocked) {
+                    val gatedSection = when (screen) {
+                        Screen.AppBlocker -> Section.AppBlockerGames
+                        Screen.TotalDisconnect, Screen.AllowedApps -> Section.TotalDisconnect
+                        else -> null
+                    }
+                    if (gatedSection != null && !paywallState.isUnlocked) {
+                        screen = Screen.Paywall(gatedSection)
+                    }
+                }
 
                 // Allowed Apps is the one screen reached from another section rather than from
                 // Home, so back has to put you where you came from.
