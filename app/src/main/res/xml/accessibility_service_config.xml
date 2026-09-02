@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  typeWindowStateChanged tells us which app is foreground (Levels 2 and 3, whole-app blocking).
+  typeWindowContentChanged + typeViewScrolled let us react while the user is scrolling *inside*
+  an app, which is how the reel blocker (Level 1) catches a Reels/Shorts feed the moment it mounts
+  and bounces back out of it with a global Back.
+  canRetrieveWindowContent + flagReportViewIds are required to read the on-screen view resource-ids
+  (e.g. com.instagram.android:id/clips_viewer_view_pager) that identify a reel surface. Note that
+  it has to be the viewer's own id: the Reels *tab button* is on screen everywhere in Instagram.
+  There is deliberately no canTakeScreenshot here. An earlier feed cover frosted a still of the
+  timeline, which meant asking for the right to photograph the screen; the cover is a solid pane
+  now, so the capability came back out. Discnct reads view ids and bounds, and never pixels.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged|typeViewScrolled"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/accessibility_service_description"
+    android:notificationTimeout="100" />

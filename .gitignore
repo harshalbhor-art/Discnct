@@ -1,0 +1,20 @@
+*.iml
+.gradle/
+.idea/
+local.properties
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.ap_
+*.aab
+
+# Kotlin compiler scratch output
+.kotlin/
+
+# Release signing — never commit the upload key or its passwords
+keystore.properties
+*.jks
+*.keystore
